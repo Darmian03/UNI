@@ -1,0 +1,174 @@
+/* Base */
+body {
+    margin: 0;
+    font: 16px/1.6 Arial, Helvetica;
+    color: #f2f5ff;
+    background: linear-gradient(180deg, #0b1030, #070818);
+}
+
+/* Sticky header */
+header {
+    position: sticky;
+    top: 0;
+    background: #070818;
+    border-bottom: 1px solid #ffffff1f;
+    z-index: 10; /* За да е над елемента suica */
+}
+
+/* Layout container - header и main */
+.container {
+    max-width: 1000px;
+    margin: auto;
+    padding: 20px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 20px;
+}
+
+p {
+    margin: 10px 0;
+}
+
+.subtitle {
+    margin: 5px 0 0;
+    color: #f2f5ffbf;
+}
+
+/* Content sections - Урок, Интерактивна част, Задачи и Решения */
+section {
+    margin: 15px 0;
+    padding: 20px;
+    border: 1px solid #ffffff1f;
+    border-radius: 25px;
+    background: #ffffff0f;
+}
+
+h2 {
+    margin: 0 0 10px;
+    font-size: 20px;
+}
+
+h3 {
+    margin: 15px 0 8px;
+    font-size: 16px;
+    color: #8ef0fff2;
+}
+
+/* Callout кутии - за формулите */
+.callout {
+    margin: 14px 0;
+    padding: 12px;
+    border: 1px solid #ffffff1f;
+    border-radius: 25px;
+    background: #0000001f;
+}
+
+.note {
+    color: #f2f5ffbf;
+}
+
+ol {
+    padding-left: 18px;
+}
+
+li {
+    margin: 10px 0;
+}
+
+/* Drop down - за детайли, инструкции и решения */
+details {
+    margin: 10px 10px;
+}
+
+summary {
+    cursor: pointer;
+    color: #8ef0fff2;
+}
+
+footer {
+    margin: 18px 0 8px;
+    color: #f2f5ffbf;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* Интерактивна зона (suica + страничен панел) */
+.interactive {
+    display: flex;
+    gap: 20px;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+}
+
+suica {
+    display: inline-block;
+    border: 1px solid #ffffff1f;
+    background: #070818;
+}
+
+/* Страничен панел (информацията за планетата) */
+aside {
+    min-width: 240px;
+    border: 1px solid #ffffff1f;
+    border-radius: 25px;
+    background: #0000001f;
+    padding: 12px;
+}
+
+dl {
+    margin: 0;
+}
+
+dt {
+    color: #f2f5ffbf;
+}
+
+dd {
+    margin: 0 0 10px;
+}
+
+/* Отметки */
+.controls {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #ffffff1f;
+}
+
+/* Калкулатори */
+.calculators {
+    display: flex;
+    gap: 20px;
+}
+
+/* Калкулаторска карта */
+.calculator {
+    border: 1px solid #ffffff1f;
+    border-radius: 25px;
+    background: #0000001f;
+    padding: 12px;
+}
+
+/* Входове за калкулатор */
+.calculator input {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 6px 0;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid #ffffff1f;
+    background: #070818;
+    color: #f2f5ff;
+}
+
+/* Бутон за калкулатор */
+.calculator button {
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #ffffff1f;
+    background: #ffffff12;
+    color: #f2f5ff;
+}

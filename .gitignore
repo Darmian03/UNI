@@ -1,0 +1,9 @@
+# Exclude large evaluation datasets from AI/Project/data (keep the 100k ones)
+AI/Project/data/*250k*
+AI/Project/data/*500k*
+AI/Project/data/*1000k*
+
+# Python artifacts
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

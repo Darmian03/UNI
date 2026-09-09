@@ -1,0 +1,4 @@
+﻿PROJECT;"Smart Library Portal";"Portal for library services, reservations, and notifications."
+REQ;R12;;functional;"Book Search";"Search books by title, author, and ISBN.";client;2;4;milen;in_progress;
+REQ;R13;R12;functional;"Advanced Filters";"Filter by genre, year, and availability.";client;3;3;milen;not_started;
+REQ;R14;;nonfunctional;"Availability SLA";"System uptime requirements for public portal.";install_test;2;4;milen;in_progress;"Uptime|Monthly availability of the portal.|%|>= 99.5"

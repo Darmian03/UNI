@@ -1,0 +1,102 @@
+{
+  "timestamp_utc": "2026-01-04T14:05:08.927015+00:00",
+  "num_games": 100,
+  "seed": 42,
+  "model_a": {
+    "type": "NN",
+    "depth": 4,
+    "model_file": "nn_eval_1000k_low_elo.pt"
+  },
+  "model_b": {
+    "type": "Custom",
+    "depth": 4,
+    "model_file": null
+  },
+  "wins_model_a": 8,
+  "wins_model_b": 66,
+  "draws": 0,
+  "terminations": 26,
+  "termination_reason": "ply_limit",
+  "avg_plies_per_game": 84.9,
+  "avg_move_time_seconds": {
+    "model_a": 16.103655603471903,
+    "model_b": 6.007812315272557
+  },
+  "final_score": {
+    "model_a": 5.827803164741386,
+    "model_b": 6.041902141640001
+  },
+  "move_error_stats": {
+    "model_a": {
+      "excellent": {
+        "average_per_game": 19.34,
+        "percentage": 45.6778460085026
+      },
+      "good": {
+        "average_per_game": 8.76,
+        "percentage": 20.689655172413794
+      },
+      "inaccuracy": {
+        "average_per_game": 8.37,
+        "percentage": 19.76854038734058
+      },
+      "mistake": {
+        "average_per_game": 3.31,
+        "percentage": 7.817666509211148
+      },
+      "blunder": {
+        "average_per_game": 2.56,
+        "percentage": 6.046291922531885
+      }
+    },
+    "model_b": {
+      "excellent": {
+        "average_per_game": 20.48,
+        "percentage": 48.1203007518797
+      },
+      "good": {
+        "average_per_game": 8.7,
+        "percentage": 20.441729323308273
+      },
+      "inaccuracy": {
+        "average_per_game": 6.74,
+        "percentage": 15.836466165413535
+      },
+      "mistake": {
+        "average_per_game": 4.16,
+        "percentage": 9.774436090225564
+      },
+      "blunder": {
+        "average_per_game": 2.48,
+        "percentage": 5.827067669172932
+      }
+    }
+  },
+  "termination_reasons": {
+    "checkmate": 74,
+    "ply_limit": 22,
+    "threefold_repetition": 4
+  },
+  "notes": {
+    "oracle": {
+      "engine": "Stockfish",
+      "depth": 16,
+      "eval_pov": "white"
+    },
+    "color_alternation": "A is White on even games; B is White on odd games",
+    "random_opening": {
+      "enabled": false,
+      "plies": [
+        2,
+        4
+      ],
+      "seed_derivation": "per_game_seed = base_seed + game_index"
+    },
+    "move_quality_metric": {
+      "type": "delta_cp_buckets",
+      "aggregation": "harmonic_mean_per_game_then_mean_over_games",
+      "why_harmonic_mean": "Strongly penalizes blunders (low-quality moves) so they dominate the game score, which is intentional.",
+      "why_delta_based": "Uses centipawn loss magnitude from Stockfish oracle, which matches common chess error categories and avoids color/sign issues."
+    }
+  }
+}

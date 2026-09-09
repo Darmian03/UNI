@@ -1,0 +1,12 @@
+﻿PROJECT;"Requirements Management System";"Web system for managing functional and non-functional requirements."
+REQ;R1;;functional;"User Management";"Manage users, roles, and authentication.";business;1;5;milen;in_progress;
+REQ;R2;R1;functional;"User Registration";"Allow visitors to register with username and password.";client;2;5;milen;done;
+REQ;R3;R1;functional;"User Login";"Authenticate users and create sessions.";business;1;5;milen;in_progress;
+REQ;R4;;functional;"Project Management";"Create, edit, and list projects.";business;2;4;milen;in_progress;
+REQ;R5;R4;functional;"Create Project";"Provide UI and validation to create projects.";client;2;4;milen;done;
+REQ;R6;R4;functional;"Edit Project";"Allow editing project details.";client;3;4;milen;not_started;
+REQ;R7;;functional;"Requirements Catalog";"Manage functional and non-functional requirements.";business;1;5;milen;in_progress;
+REQ;R8;R7;functional;"Add Requirement";"Add new requirement with priority and layer.";client;1;5;milen;done;
+REQ;R9;R7;functional;"Edit Requirement";"Edit existing requirement details.";client;1;5;milen;in_progress;
+REQ;R10;;nonfunctional;Performance;"System must respond within acceptable time.";business;1;5;milen;in_progress;"Response Time|Average response time for requirement listing.|ms|<= 800||Peak Load|Requests per minute without degradation.|rpm|>= 1200"
+REQ;R11;;nonfunctional;Security;"Protect data and restrict access.";business;1;5;milen;not_started;"Password Hashing|Use bcrypt for password storage.|security|bcrypt"

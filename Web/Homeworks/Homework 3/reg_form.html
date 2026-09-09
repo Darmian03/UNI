@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="bg">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+    <link rel="stylesheet" href="reg_form.css">
+</head>
+
+<body>
+    <main>
+        <h1>Регистрация</h1>
+
+        <div id="success"></div>
+
+        <form id="registration-form">
+            <fieldset>
+                <legend>Основна информация</legend>
+
+                <label for="username" class="required">Потребителско име</label>
+                <input type="text" id="username" name="username">
+                <div class="error" id="username-error"></div>
+
+                <label for="name" class="required">Име</label>
+                <input type="text" id="name" name="name">
+                <div class="error" id="name-error"></div>
+
+                <label for="family-name" class="required">Фамилия</label>
+                <input type="text" id="family-name" name="family-name">
+                <div class="error" id="family-name-error"></div>
+
+                <label for="email" class="required">Имейл</label>
+                <input type="email" id="email" name="email">
+                <div class="error" id="email-error"></div>
+
+                <label for="password" class="required">Парола</label>
+                <input type="password" id="password" name="password">
+                <div class="error" id="password-error"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Адрес (опционално)</legend>
+
+                <label for="street">Улица</label>
+                <input type="text" id="street" name="street">
+                <div class="error" id="street-error"></div>
+
+                <label for="city">Град</label>
+                <input type="text" id="city" name="city">
+                <div class="error" id="city-error"></div>
+
+                <label for="postal-code">Пощенски код</label>
+                <input type="text" id="postal-code" name="postal-code">
+                <div class="error" id="postal-code-error"></div>
+            </fieldset>
+
+            <button type="submit" id="register-btn">Регистрация</button>
+        </form>
+    </main>
+
+    <script src="reg_form.js"></script>
+</body>
+
+</html>
