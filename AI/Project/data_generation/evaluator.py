@@ -11,25 +11,19 @@ from data_generation.utils import PositionSample, StockfishConfig
 
 
 def _open_engine(stockfish_path: Path, cfg: StockfishConfig) -> chess.engine.SimpleEngine:
+    """Start a Stockfish UCI engine with the given thread count."""
     eng = chess.engine.SimpleEngine.popen_uci(str(stockfish_path))
     eng.configure({"Threads": int(cfg.threads)})
     return eng
 
 
 def _close_engine(eng: chess.engine.SimpleEngine) -> None:
+    """Quit a Stockfish UCI engine."""
     eng.quit()
 
 
-def probe_engine_id(stockfish_path: Path, cfg: StockfishConfig) -> dict[str, Any]:
-    """Връща UCI идентификатора на Stockfish."""
-
-    engine = _open_engine(stockfish_path, cfg)
-    out = dict(engine.id)
-    _close_engine(engine)
-    return out
-
-
 def stockfish_config_metadata(cfg: StockfishConfig) -> dict[str, Any]:
+    """Serialize the config for passing across process boundaries."""
     return asdict(cfg)
 
 
@@ -39,6 +33,7 @@ def evaluate_sample(
     stockfish_path: Path,
     cfg: StockfishConfig,
 ) -> dict[str, Any]:
+    """Analyse one position with Stockfish and return its CSV row (best move + eval)."""
     eng = _open_engine(stockfish_path, cfg)
     b = chess.Board(sample.fen)
     info = eng.analyse(b, chess.engine.Limit(depth=int(cfg.depth)), multipv=1)

@@ -440,8 +440,9 @@ def main() -> None:
     screen = pygame.display.set_mode((width, height))
     clock = pygame.time.Clock()
 
-    font = pygame.font.SysFont("Segoe UI", 18)
-    small = pygame.font.SysFont("Segoe UI", 15)
+    # Cross-platform: SysFont(None, ...) uses the system default font on any OS.
+    font = pygame.font.SysFont(None, 20)
+    small = pygame.font.SysFont(None, 17)
 
     images = _load_piece_images(square_size)
     mini_images = _load_piece_images(32)

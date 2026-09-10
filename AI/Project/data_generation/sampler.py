@@ -12,6 +12,7 @@ from data_generation.utils import EloBucket, GamePhase, PositionSample, Sampling
 
 
 def _material_cp(board: chess.Board) -> int:
+    """Total material in pawn-equivalent units (both sides)."""
     values = {
         chess.PAWN: 1,
         chess.KNIGHT: 3,
@@ -27,10 +28,12 @@ def _material_cp(board: chess.Board) -> int:
 
 
 def _is_low_material(board: chess.Board) -> bool:
+    """True when the position has little material left (endgame-ish)."""
     return _material_cp(board) <= 20
 
 
 def _phase_for(board: chess.Board, ply: int) -> GamePhase | None:
+    """Coarse game-phase label for a position, or None if it should be skipped."""
     if ply <= 8:
         return None
 
@@ -47,6 +50,7 @@ def _phase_for(board: chess.Board, ply: int) -> GamePhase | None:
 
 
 def _iter_games(pgn_path: Path) -> Iterator[chess.pgn.Game]:
+    """Yield games from a PGN file."""
     with pgn_path.open("r", encoding="utf-8", errors="replace") as f:
         while True:
             game = chess.pgn.read_game(f)
@@ -56,6 +60,7 @@ def _iter_games(pgn_path: Path) -> Iterator[chess.pgn.Game]:
 
 
 def _target_counts(num_positions: int, sampling: SamplingConfig) -> dict[GamePhase, int]:
+    """Per-phase sample counts from the configured ratios."""
     early = int(round(num_positions * sampling.early_ratio))
     mid = int(round(num_positions * sampling.mid_ratio))
     end = num_positions - early - mid

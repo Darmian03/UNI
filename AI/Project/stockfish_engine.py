@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 import chess
@@ -8,26 +9,70 @@ import chess.engine
 
 
 def find_stockfish_exe() -> Path:
+    """Locate the Stockfish executable, cross-platform.
+
+    Resolution order:
+      1. ``STOCKFISH_PATH`` environment variable (explicit override).
+      2. ``stockfish`` on the system PATH (covers apt/brew installs and ~/bin).
+      3. Well-known install locations for Linux/macOS/Windows.
+
+    Raises FileNotFoundError with a hint if nothing is found, so callers fail
+    fast instead of trying to popen a bogus path.
+    """
     env = os.environ.get("STOCKFISH_PATH")
     if env:
-        return Path(env).expanduser()
+        p = Path(env).expanduser()
+        if p.is_file():
+            return p
+        raise FileNotFoundError(
+            f"STOCKFISH_PATH is set to {p!s}, but that file does not exist."
+        )
 
+    on_path = shutil.which("stockfish") or shutil.which("stockfish.exe")
+    if on_path:
+        return Path(on_path)
+
+    home = Path.home()
     candidates = [
-        Path(r"C:\\Program Files\\stockfish\\stockfish.exe"),
-        Path(r"C:\\Program Files\\Stockfish\\stockfish.exe"),
-        Path(r"C:\\stockfish\\stockfish.exe"),
-        Path(r"C:\\Program Files\\stockfish"),
+        # Linux (apt/brew/manual) and macOS
+        Path("/usr/games/stockfish"),
+        Path("/usr/local/bin/stockfish"),
+        Path("/usr/bin/stockfish"),
+        home / "bin" / "stockfish",
+        Path("/opt/homebrew/bin/stockfish"),
+        # Windows
+        Path(r"C:\Program Files\stockfish\stockfish.exe"),
+        Path(r"C:\Program Files\Stockfish\stockfish.exe"),
+        Path(r"C:\stockfish\stockfish.exe"),
     ]
 
     for p in candidates:
         if p.is_file():
             return p
-        if p.is_dir():
-            exes = sorted(p.glob("stockfish*.exe"))
-            if exes:
-                return exes[0]
 
-    return candidates[0]
+    # Last resort: scan a few common directories for any stockfish binary.
+    search_dirs = [
+        home / "bin",
+        Path("/usr/local/bin"),
+        Path(r"C:\Program Files\stockfish"),
+        Path(r"C:\Program Files\Stockfish"),
+    ]
+    patterns = ["stockfish*.exe"] if os.name == "nt" else ["stockfish*"]
+    for d in search_dirs:
+        if not d.is_dir():
+            continue
+        for pattern in patterns:
+            matches = sorted(
+                m for m in d.glob(pattern) if m.is_file() and os.access(m, os.X_OK)
+            )
+            if matches:
+                return matches[0]
+
+    raise FileNotFoundError(
+        "Could not find a Stockfish executable. Install it (e.g. 'sudo apt install stockfish', "
+        "'brew install stockfish', or download from https://stockfishchess.org/download/) "
+        "and either put it on PATH or set the STOCKFISH_PATH environment variable."
+    )
 
 
 def evaluate_board(

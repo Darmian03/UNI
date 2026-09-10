@@ -9,6 +9,8 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from tqdm import tqdm
+
 from data_generation.evaluator import evaluate_sample, stockfish_config_metadata
 from data_generation.sampler import sample_positions
 import data_generation.utils as dg_utils
@@ -29,6 +31,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _evaluate_one(job: tuple[int, dict, dict]) -> tuple[int, dict]:
+    """Evaluate one sampled position with Stockfish (runs in a worker process)."""
     i, sample_dict, ctx = job
 
     sample = dg_utils.PositionSample(
@@ -46,6 +49,7 @@ def _evaluate_one(job: tuple[int, dict, dict]) -> tuple[int, dict]:
 
 
 def main() -> None:
+    """Sample positions from the PGN and write a Stockfish-evaluated CSV dataset."""
     args = _parse_args()
 
     num_positions = dg_utils.parse_num_positions_thousands(args.num_positions)
@@ -92,7 +96,7 @@ def main() -> None:
 
     with mp.Pool(processes=cpu_workers) as pool:
         jobs = [(i, sp, ctx) for i, sp in enumerate(sample_payload)]
-        for i, row in pool.imap_unordered(_evaluate_one, jobs, chunksize=8):
+        for i, row in tqdm(pool.imap_unordered(_evaluate_one, jobs, chunksize=8), total=len(jobs), desc="Evaluating", unit="pos"):
             rows[i] = row
 
     fieldnames = [

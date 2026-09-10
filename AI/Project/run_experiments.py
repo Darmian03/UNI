@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 import chess
 import chess.engine
+from tqdm import tqdm
 
 from custom_eval_engine import evaluator_white_pov
 from minimax import minimax
@@ -65,6 +66,7 @@ class Config:
     random_opening: bool = True
     random_opening_min_plies: int = 2
     random_opening_max_plies: int = 4
+    device: str = "auto"
 
 
 @dataclass
@@ -192,7 +194,7 @@ def _harmonic_mean(values: list[float]) -> float:
 _WORKER: dict[str, Any] = {}
 
 
-def _build_evaluator_for_spec(spec: Model) -> Callable[[chess.Board], float]:
+def _build_evaluator_for_spec(spec: Model, *, device: str = "auto") -> Callable[[chess.Board], float]:
     k = spec.normalized_kind()
 
     if k == "custom":
@@ -203,7 +205,7 @@ def _build_evaluator_for_spec(spec: Model) -> Callable[[chess.Board], float]:
 
         model_path = TRAINED_MODELS_DIR / str(spec.model_file)
 
-        nn_eval = NeuralNetworkEvaluator(model_path)
+        nn_eval = NeuralNetworkEvaluator(model_path, device=device)
 
         def eval_white_nn(board: chess.Board) -> float:
             return float(nn_eval.evaluate(board, _phase_for(board)))
@@ -228,6 +230,7 @@ def _worker_init(cfg_dict: dict[str, Any]) -> None:
         random_opening=bool(cfg_dict.get("random_opening", True)),
         random_opening_min_plies=int(cfg_dict.get("random_opening_min_plies", 2)),
         random_opening_max_plies=int(cfg_dict.get("random_opening_max_plies", 4)),
+        device=str(cfg_dict.get("device", "auto")),
     )
 
     oracle = StockfishSession(threads=1)
@@ -242,7 +245,7 @@ def _worker_init(cfg_dict: dict[str, Any]) -> None:
             assert stockfish_session is not None
             return StockfishPlayer(session=stockfish_session, depth=spec.depth)
         if kind in ("nn", "custom"):
-            evaluator = _build_evaluator_for_spec(spec)
+            evaluator = _build_evaluator_for_spec(spec, device=cfg.device)
             return MinimaxPlayer(depth=spec.depth, evaluator_white=evaluator)
         return MinimaxPlayer(depth=spec.depth, evaluator_white=evaluator_white_pov)
 
@@ -462,6 +465,14 @@ def _parse_args() -> argparse.Namespace:
         default=True,
     )
 
+    p.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        help="Device for NN evaluation: 'auto', 'cpu', 'cuda' or 'cuda:<n>' (e.g. cuda:0). "
+             "'auto' uses CUDA when available.",
+    )
+
     return p.parse_args()
 
 
@@ -494,6 +505,7 @@ def run_experiment(cfg: Config) -> dict[str, Any]:
         "random_opening": bool(cfg.random_opening),
         "random_opening_min_plies": int(cfg.random_opening_min_plies),
         "random_opening_max_plies": int(cfg.random_opening_max_plies),
+        "device": str(cfg.device),
     }
 
     num_games = int(cfg.num_games)
@@ -529,7 +541,7 @@ def run_experiment(cfg: Config) -> dict[str, Any]:
     with ctx.Pool(processes=num_workers, initializer=_worker_init, initargs=(cfg_dict,)) as pool:
         it = pool.imap_unordered(_play_one_game, tasks, chunksize=1)
 
-        for gr in it:
+        for gr in tqdm(it, total=num_games, desc="Games", unit="game"):
             if gr.winner == "A":
                 wins_a += 1
             elif gr.winner == "B":
@@ -632,6 +644,7 @@ def main() -> None:
         num_workers=(int(args.num_workers) if args.num_workers is not None else None),
         max_plies=int(args.max_plies),
         random_opening=bool(getattr(args, "random_opening", True)),
+        device=str(args.device),
     )
 
     run_experiment(cfg)

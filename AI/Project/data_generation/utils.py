@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import datetime as _dt
 import os
-import platform
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -36,19 +34,18 @@ class PositionSample:
 
 
 def project_root() -> Path:
+    """Project root directory (parent of data_generation/)."""
     return Path(__file__).resolve().parents[1]
 
 
 def default_pgn_path() -> Path:
+    """Default PGN file used for sampling positions."""
     return project_root() / "data" / "games.pgn"
 
 
 def output_dir() -> Path:
+    """Directory where generated CSV datasets are written."""
     return project_root() / "data"
-
-
-def iso_utc_now() -> str:
-    return _dt.datetime.now(tz=_dt.timezone.utc).replace(microsecond=0).isoformat()
 
 
 def parse_elo_bucket(value: str) -> EloBucket:
@@ -84,28 +81,7 @@ def game_matches_elo(headers: dict[str, Any], bucket: EloBucket) -> bool:
 
 
 def resolve_stockfish_path() -> Path:
-    """Resolve Stockfish executable path."""
+    """Resolve the Stockfish executable path (delegates to stockfish_engine)."""
+    from stockfish_engine import find_stockfish_exe
 
-    env = os.environ.get("STOCKFISH_PATH")
-    if env:
-        p = Path(env).expanduser()
-        if p.exists():
-            return p
-
-    default = Path(r"C:\Program Files\stockfish")
-    if default.is_file():
-        return default
-
-    if default.is_dir():
-        matches = sorted(default.glob("stockfish*.exe"))
-        if matches:
-            return matches[0]
-    return default
-
-
-def environment_metadata() -> dict[str, Any]:
-    return {
-        "platform": platform.platform(),
-        "python": platform.python_version(),
-        "cpu_count": os.cpu_count(),
-    }
+    return find_stockfish_exe()

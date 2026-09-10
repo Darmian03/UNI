@@ -1,0 +1,9 @@
+# Chess AI Project — Python 3.14, Linux (Ubuntu 26.04)
+# Installed: 2026-09-10 into .venv (python3.14)
+
+chess==1.11.2          # python-chess (board / engine / UCI)
+numpy==2.5.2
+torch==2.13.0          # PyPI default Linux wheel = CUDA-enabled (+cu130), supports sm_120 (RTX 5070 Ti) and sm_86 (RTX 3060)
+tqdm==4.70.0           # progress bars for experiments / training / data generation
+pygame-ce==2.5.8       # NOTE: pygame-ce, not official pygame — official pygame 2.6.1 has no cp314 wheel;
+                       # pygame-ce is a drop-in replacement (`import pygame` works unchanged), prebuilt for cp314

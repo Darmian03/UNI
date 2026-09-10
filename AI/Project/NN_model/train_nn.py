@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import argparse
 import math
+import sys
 from pathlib import Path
+
+if __package__ in (None, ""):
+    # Allow running directly as `python NN_model/train_nn.py` from the project root.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import chess
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
-from NN_model.model import NNEvalNet, input_channels
+from NN_model.model import NNEvalNet, input_channels, resolve_device
 from NN_model.utils import (
     DatasetConfig,
     TrainConfig,
@@ -45,6 +51,13 @@ class ChessEvalDataset(Dataset):
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--dataset", required=True)
+    p.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        help="Training device: 'auto', 'cpu', 'cuda' or 'cuda:<n>' (e.g. cuda:0). "
+             "'auto' uses CUDA when available, else CPU.",
+    )
     p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--batch_size", type=int, default=512)
     p.add_argument("--lr", type=float, default=1e-3)
@@ -61,6 +74,12 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
+
+    device = resolve_device(args.device)
+    if device.type == "cuda":
+        print(f"Training on CUDA: {torch.cuda.get_device_name(device.index or 0)}")
+    else:
+        print("Training on CPU.")
 
     train_cfg = TrainConfig(
         dataset_csv=args.dataset,
@@ -105,7 +124,7 @@ def main() -> None:
         num_workers=workers,
     )
 
-    net = NNEvalNet(in_channels=input_channels(dataset_cfg))
+    net = NNEvalNet(in_channels=input_channels(dataset_cfg)).to(device)
 
     opt = torch.optim.Adam(net.parameters(), lr=train_cfg.lr, weight_decay=train_cfg.weight_decay)
     loss_fn = nn.MSELoss()
@@ -113,7 +132,9 @@ def main() -> None:
     for epoch in range(1, train_cfg.epochs + 1):
         net.train()
         train_loss = 0.0
-        for xb, yb in train_loader:
+        for xb, yb in tqdm(train_loader, desc=f"Epoch {epoch}/{train_cfg.epochs}", unit="batch", leave=False):
+            xb = xb.to(device, non_blocking=True)
+            yb = yb.to(device, non_blocking=True)
             pred = net(xb)
             loss = loss_fn(pred, yb)
 
@@ -127,7 +148,9 @@ def main() -> None:
             net.eval()
             val_loss = 0.0
             with torch.no_grad():
-                for xb, yb in val_loader:
+                for xb, yb in tqdm(val_loader, desc=f"Val   {epoch}/{train_cfg.epochs}", unit="batch", leave=False):
+                    xb = xb.to(device, non_blocking=True)
+                    yb = yb.to(device, non_blocking=True)
                     pred = net(xb)
                     loss = loss_fn(pred, yb)
                     val_loss += float(loss.item())

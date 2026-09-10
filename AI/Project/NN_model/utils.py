@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, cast
 
@@ -32,23 +31,24 @@ class TrainConfig:
 
 
 def project_root() -> Path:
+    """Project root directory (parent of NN_model/)."""
     return Path(__file__).resolve().parents[1]
 
 
 def data_dir() -> Path:
+    """Directory holding the CSV datasets."""
     return project_root() / "data"
 
 
 def trained_models_dir() -> Path:
+    """Directory where trained .pt models are saved."""
     return project_root() / "trained_models"
 
 
-def iso_utc_now() -> str:
-    return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
-
-
 def set_seed(seed: int) -> None:
+    """Seed Python, NumPy and torch RNGs for reproducibility."""
     import random
+
     import torch
 
     random.seed(seed)
@@ -143,4 +143,5 @@ def load_dataset_rows(csv_path: Path, *, dataset_cfg: DatasetConfig) -> tuple[li
 
 
 def cpu_worker_count() -> int:
+    """Number of DataLoader worker processes (all CPU cores)."""
     return max(0, os.cpu_count() or 0)
