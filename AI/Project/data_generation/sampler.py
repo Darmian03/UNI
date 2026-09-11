@@ -33,7 +33,11 @@ def _is_low_material(board: chess.Board) -> bool:
 
 
 def _phase_for(board: chess.Board, ply: int) -> GamePhase | None:
-    """Coarse game-phase label for a position, or None if it should be skipped."""
+    """Coarse game-phase label for a position, or None if it should be skipped.
+
+    The first 8 plies (openings) are always skipped; afterwards the phase is
+    decided by move number and remaining material.
+    """
     if ply <= 8:
         return None
 
@@ -77,7 +81,12 @@ def sample_positions(
     elo: EloBucket,
     sampling: SamplingConfig,
 ) -> tuple[list[PositionSample], dict[str, Any]]:
-    """Sample positions from PGN games."""
+    """Walk the mainlines of elo-matching games and collect unique mid-game FENs.
+
+    Positions are balanced across phases per the configured ratios; duplicates
+    (by FEN) and positions in already-full phase buckets are skipped. Returns
+    the samples plus sampling metadata (targets vs achieved counts).
+    """
 
     targets = _target_counts(num_positions, sampling)
     counts: dict[GamePhase, int] = {"early": 0, "mid": 0, "end": 0}

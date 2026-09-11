@@ -42,6 +42,8 @@ ACCENT = (70, 120, 200)
 
 @dataclass
 class Dropdown:
+    """Simple dropdown widget; handle_event returns the new selection when changed."""
+
     rect: pygame.Rect
     label: str
     options: List[str]
@@ -55,6 +57,7 @@ class Dropdown:
         return self.options[self.selected_index]
 
     def handle_event(self, event: pygame.event.Event) -> Optional[str]:
+        # Click on the box toggles it; a click inside the open menu selects an option.
         if event.type != EVT_MOUSEBUTTONDOWN or event.button != 1:
             return None
 
@@ -114,6 +117,7 @@ class Dropdown:
 
 @dataclass
 class Button:
+    """Clickable button; handle_event returns True on a left click while enabled."""
     rect: pygame.Rect
     text: str
     enabled: bool = True
@@ -132,7 +136,9 @@ class Button:
         pygame.draw.rect(screen, (100, 100, 100), self.rect, width=1, border_radius=4)
         s = font.render(self.text, True, TEXT if self.enabled else SUBTEXT)
         screen.blit(s, (self.rect.centerx - s.get_width() // 2, self.rect.centery - s.get_height() // 2))
+        
 class EngineAdapter:
+    """Interface for an opponent engine in the GUI."""
     def get_best_move(self, _board: chess.Board) -> chess.Move:
         return chess.Move.null()
 
@@ -143,6 +149,7 @@ class StockfishAdapter(EngineAdapter):
         self.threads = threads
 
     def get_best_move(self, board: chess.Board) -> chess.Move:
+        """Opponent backed by minimax + the handcrafted evaluation (multiprocessing over root moves)."""
         move, _score = stockfish_evaluate_board(board, depth=self.depth, threads=self.threads)
         return move
 
@@ -299,6 +306,7 @@ def _square_to_screen(
 ) -> Tuple[int, int]:
     file = chess.square_file(square)
     rank = chess.square_rank(square)
+    """Map a board square to screen pixels; the board is flipped when playing Black."""
 
     if human_color == chess.WHITE:
         x = origin[0] + file * square_size
@@ -317,6 +325,7 @@ def _screen_to_square(
     square_size: int,
     human_color: chess.Color,
 ) -> Optional[chess.Square]:
+    """Inverse of _square_to_screen; returns None for clicks outside the board."""
     x, y = pos
     ox, oy = origin
     if x < ox or y < oy:
@@ -347,6 +356,8 @@ def _draw_board(
     selected_square: Optional[chess.Square],
     legal_dests: List[chess.Square],
 ) -> None:
+    """Draw squares, check/checkmate highlight on the king, selection/dest markers and pieces."""
+    # The in-check king is highlighted (red for mate, orange otherwise).
     king_sq = None
     if board.is_checkmate():
         king_sq = board.king(board.turn)
@@ -398,6 +409,7 @@ class CaptureEvent:
 
 
 def _capture_for_move(board: chess.Board, move: chess.Move) -> Optional[str]:
+    """Piece code captured by a move (en passant captures the pawn on the adjacent rank)."""
     if not board.is_capture(move):
         return None
 
@@ -414,6 +426,7 @@ def _capture_for_move(board: chess.Board, move: chess.Move) -> Optional[str]:
 
 
 def _coerce_promotion(board: chess.Board, move: chess.Move) -> chess.Move:
+    """Force queen promotion for pawn moves reaching the last rank (the GUI has no promotion dialog)."""
     piece = board.piece_at(move.from_square)
     if piece is None or piece.piece_type != chess.PAWN:
         return move
@@ -514,6 +527,7 @@ def main() -> None:
     pending_analysis_at: Optional[float] = None
 
     def _game_result_message() -> str:
+        """Human-readable message for the finished game (checkmate/draw reason)."""
         if board.is_checkmate():
             winner = "White" if board.turn == chess.BLACK else "Black"
             return f"Checkmate. {winner} wins."
@@ -532,6 +546,7 @@ def main() -> None:
         return pygame.Rect(panel.right - 140 - 12, panel.y + 10, 140, 32)
 
     def reset_to_setup() -> None:
+        """Reset all game/analysis state back to the setup screen."""
         nonlocal state, board, engine, selected_sq, legal_dests
         nonlocal move_san, capture_log, captured_by_white, captured_by_black
         nonlocal human_moves, engine_thread, engine_thinking, status_msg
@@ -557,6 +572,7 @@ def main() -> None:
         history_scroll = 0
 
     def build_engine() -> EngineAdapter:
+        """Create the opponent engine from the dropdown selections (NN label maps to a .pt file)."""
         opp = opponent_dd.selected()
         threads = max(1, os.cpu_count() or 1)
         num_procs = threads
@@ -569,6 +585,7 @@ def main() -> None:
             depth = int(option_dd.selected())
             return CustomMinimaxAdapter(depth=depth, num_processes=num_procs)
 
+        # NN opponent: map the dropdown label to a trained model file.
         model_label = option_dd.selected()
         model_map = {
             "NN 50K low elo": "nn_eval_50k_low_elo.pt",
@@ -617,6 +634,7 @@ def main() -> None:
     update_option_dropdown()
 
     def start_game() -> None:
+        """Start a new game with the chosen color and opponent engine."""
         nonlocal state, engine, board, human_color
         nonlocal selected_sq, legal_dests, status_msg
 
@@ -630,6 +648,7 @@ def main() -> None:
         state = "playing"
 
     def begin_engine_move_if_needed() -> None:
+        """If it's the engine's turn, compute its move in a background thread (non-blocking UI)."""
         nonlocal engine_thread, engine_thinking
 
         if engine is None:
@@ -641,7 +660,7 @@ def main() -> None:
         if is_human_turn:
             return
 
-        if engine_thinking:
+        if engine_thinking:  # a move request is already in flight
             return
 
         def worker(fen: str) -> None:
@@ -654,6 +673,7 @@ def main() -> None:
         engine_thread.start()
 
     def apply_move(move: chess.Move, *, is_human: bool) -> None:
+        """Apply a legal move and record SAN/captures; human moves are also stored for post-game analysis."""
         nonlocal selected_sq, legal_dests, status_msg
 
         move = _coerce_promotion(board, move)
@@ -685,6 +705,7 @@ def main() -> None:
         status_msg = ""
 
     def undo_one_ply() -> None:
+        """Undo one ply and roll back the SAN/capture/human-move history accordingly."""
         nonlocal selected_sq, legal_dests
 
         if not board.move_stack:
@@ -737,6 +758,8 @@ def main() -> None:
         analysis_thread.start()
         engine_thinking = False
 
+    # Main loop: poll the engine/analysis queues (so worker results are applied),
+    # handle input per state ("setup" / "playing" / "analysis"), then redraw.
     running = True
     while running:
         clock.tick(FPS)

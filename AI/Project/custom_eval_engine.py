@@ -108,6 +108,7 @@ def _piece_squares(piece_type: chess.PieceType, color: chess.Color, board: chess
 
 
 def _pst_value(piece_type: chess.PieceType, square: int, *, endgame_t: float) -> int:
+    """PST value for a piece on a square; the king blends midgame/endgame tables by phase."""
     if piece_type == chess.PAWN:
         return _PAWN_PST[square]
     if piece_type == chess.KNIGHT:
@@ -126,6 +127,7 @@ def _pst_value(piece_type: chess.PieceType, square: int, *, endgame_t: float) ->
 
 
 def _game_phase_endgame_t(board: chess.Board) -> float:
+    """Endgame-ness in [0, 1] from remaining material (queens weigh most); 1.0 = full endgame."""
     phase = 0
     phase += 1 * (len(board.pieces(chess.KNIGHT, chess.WHITE)) + len(board.pieces(chess.KNIGHT, chess.BLACK)))
     phase += 1 * (len(board.pieces(chess.BISHOP, chess.WHITE)) + len(board.pieces(chess.BISHOP, chess.BLACK)))
@@ -138,6 +140,7 @@ def _game_phase_endgame_t(board: chess.Board) -> float:
 
 
 def _material_eval_white(board: chess.Board) -> int:
+    """Material balance in centipawns (White minus Black), plus a two-bishop bonus."""
     score = 0
     for pt, val in _PIECE_VALUES.items():
         score += val * len(board.pieces(pt, chess.WHITE))
@@ -152,6 +155,7 @@ def _material_eval_white(board: chess.Board) -> int:
 
 
 def _pst_eval_white(board: chess.Board, *, endgame_t: float) -> int:
+    """PST sum for both sides; Black's squares are mirrored so one table serves both colors."""
     score = 0
     for pt in (chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING):
         for sq in _piece_squares(pt, chess.WHITE, board):
@@ -162,12 +166,14 @@ def _pst_eval_white(board: chess.Board, *, endgame_t: float) -> int:
 
 
 def _mobility(board: chess.Board, color: chess.Color) -> int:
+    """Number of legal moves for a color (board copy so the real turn is untouched)."""
     b = board.copy(stack=False)
     b.turn = color
     return sum(1 for _ in b.legal_moves)
 
 
 def _mobility_eval_white(board: chess.Board, *, endgame_t: float) -> int:
+    """Mobility difference; scaled down in the endgame when few pieces remain."""
     w = _mobility(board, chess.WHITE)
     b = _mobility(board, chess.BLACK)
     scale = 1.0 - 0.35 * endgame_t
@@ -196,6 +202,7 @@ def _pawn_structure_eval_white(board: chess.Board, *, endgame_t: float) -> int:
         f = chess.square_file(sq)
         left = counts[f - 1] if f - 1 >= 0 else 0
         right = counts[f + 1] if f + 1 < 8 else 0
+        # A pawn is passed when no enemy pawn can stop it on its file or adjacent files.
         return left == 0 and right == 0
 
     def is_passed(color: chess.Color, sq: int, enemy_pawns: list[int]) -> bool:
@@ -238,6 +245,9 @@ def _pawn_structure_eval_white(board: chess.Board, *, endgame_t: float) -> int:
         if is_passed(chess.BLACK, sq, w_pawns):
             score -= int(round((1.0 - endgame_t) * passed_bonus_mg + endgame_t * passed_bonus_eg))
 
+    """King-safety score (White minus Black): rewards own pawn shield and punishes enemy
+    attackers around the king; both effects fade in the endgame, plus a check penalty."""
+
     return score
 
 
@@ -260,6 +270,7 @@ def _king_safety_eval_white(board: chess.Board, *, endgame_t: float) -> int:
             if not (0 <= ff <= 7):
                 continue
             sq = chess.square(ff, shield_rank)
+        # Total number of enemy pieces attacking the squares around the king.
             if board.piece_at(sq) == chess.Piece(chess.PAWN, color):
                 score += 1
         return score

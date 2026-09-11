@@ -88,7 +88,7 @@ class Result:
 
 
 class StockfishSession:
-    """Stockfish UCI wrapper used in experiments."""
+    """Long-lived Stockfish UCI session (one engine process per worker)."""
 
     def __init__(self, *, threads: int = 1):
         exe = find_stockfish_exe()
@@ -99,6 +99,7 @@ class StockfishSession:
         self._engine.quit()
 
     def best_move_and_eval_white_cp(self, board: chess.Board, *, depth: int) -> tuple[chess.Move, float]:
+        """Best move at the given depth plus its centipawn score from White's POV."""
         info = self._engine.analyse(board, chess.engine.Limit(depth=int(depth)))
         pv = info.get("pv") or []
         if pv:
@@ -114,6 +115,7 @@ class StockfishSession:
         return mv, cp_white
 
     def eval_move_white_cp(self, board: chess.Board, move: chess.Move, *, depth: int) -> float:
+        """Centipawn score (White's POV) of a specific move; the search is restricted to it."""
         info = self._engine.analyse(board, chess.engine.Limit(depth=int(depth)), root_moves=[move])
         score = info.get("score")
         if score is None:
@@ -137,11 +139,15 @@ def _phase_for(board: chess.Board) -> str:
 
 
 class Player:
+    """Interface for a side in an experiment game."""
+
     def choose_move(self, _board: chess.Board) -> chess.Move:
         return chess.Move.null()
 
 
 class StockfishPlayer(Player):
+    """Plays with the shared Stockfish session at a fixed depth."""
+
     def __init__(self, *, session: StockfishSession, depth: int):
         self._session = session
         self._depth = int(depth)
@@ -152,6 +158,8 @@ class StockfishPlayer(Player):
 
 
 class MinimaxPlayer(Player):
+    """Plays with alpha-beta minimax and a White-POV leaf evaluator (custom or NN)."""
+
     def __init__(
         self,
         *,
@@ -195,6 +203,7 @@ _WORKER: dict[str, Any] = {}
 
 
 def _build_evaluator_for_spec(spec: Model, *, device: str = "auto") -> Callable[[chess.Board], float]:
+    """Build the White-POV leaf evaluator for a model spec (custom or NN)."""
     k = spec.normalized_kind()
 
     if k == "custom":
@@ -216,7 +225,11 @@ def _build_evaluator_for_spec(spec: Model, *, device: str = "auto") -> Callable[
 
 
 def _worker_init(cfg_dict: dict[str, Any]) -> None:
-    """Initializer for each worker process."""
+    """Pool initializer: build the config, players and Stockfish sessions once per worker.
+
+    The oracle (depth-16 Stockfish) grades every move; a second session is created
+    only when one of the two models actually plays with Stockfish.
+    """
 
     import atexit
 
@@ -269,6 +282,13 @@ def _worker_close() -> None:
 
 
 def _play_one_game(game_index: int) -> Result:
+    """Play one full game between the two players and grade every move with the oracle.
+
+    Each game gets its own RNG seed (base seed + index); colors alternate by game
+    index; an optional random opening shuffles the first few plies. After each move,
+    the depth-16 oracle compares the played move's eval against the best move's eval
+    to bucket it into a quality category.
+    """
     cfg: Config = _WORKER["cfg"]
     oracle: StockfishSession = _WORKER["oracle"]
     player_a: Player = _WORKER["player_a"]
@@ -302,7 +322,8 @@ def _play_one_game(game_index: int) -> Result:
     b_time = 0.0
     a_moves = 0
     b_moves = 0
-
+# Claimable draws only (no stalemate here — that is handled separately below).
+        
     a_move_qualities: list[float] = []
     b_move_qualities: list[float] = []
     a_error_counts: dict[str, int] = {k: 0 for k in _ERROR_CATEGORIES}
@@ -493,6 +514,7 @@ def _result_filename(cfg: Config) -> str:
 
 
 def run_experiment(cfg: Config) -> dict[str, Any]:
+    """Run all games in a spawn process pool, aggregate stats and write the JSON report."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     cfg_dict = {

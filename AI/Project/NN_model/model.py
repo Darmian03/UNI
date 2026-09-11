@@ -48,14 +48,14 @@ class SavedModelBundle:
 
 
 def input_channels(dataset_cfg: DatasetConfig) -> int:
+    """Number of input planes: 12 piece + turn + 4 castling + en-passant file (+3 game phase)."""
     return 12 + 1 + 4 + 1 + (3 if dataset_cfg.include_game_phase else 0)
 
 
-# For CPU inference of this small net (batch size 1), torch's default of using
-# ALL cores is a big loss: spawning/synchronizing ~24 threads per forward pass
-# costs far more than the math itself. Measured on a 24-core box:
-#   all cores -> ~3.8 ms/evaluate,  8 threads -> ~0.10 ms/evaluate (~40x).
-# Training (batched) is NOT affected — it keeps torch's default threading.
+# CPU inference of this small net is batch-size-1, so torch's default of using ALL
+# cores is a big loss: thread sync costs more than the math. Measured on a 24-core
+# box: all cores ~3.8 ms/evaluate vs 8 threads ~0.10 ms (~40x). Batched training is
+# unaffected and keeps torch's default threading.
 _CPU_INFERENCE_MAX_THREADS = 8
 
 
@@ -68,12 +68,10 @@ def _cap_cpu_inference_threads() -> None:
 
 
 def resolve_device(spec: str | None = "auto") -> torch.device:
-    """Resolve a device spec to a ``torch.device``.
+    """Resolve a device spec ("auto", "cpu", "cuda", "gpu" or "cuda:<n>") to a torch.device.
 
-    Accepted specs (case-insensitive): ``"auto"``, ``"cpu"``, ``"cuda"``,
-    ``"gpu"``, or an indexed GPU like ``"cuda:0"`` / ``"cuda:1"``.
-    ``"auto"`` uses CUDA when available and falls back to CPU with a warning,
-    so the project runs unchanged on machines without a GPU/CUDA.
+    "auto" uses CUDA when available, else falls back to CPU with a warning; an
+    explicit CUDA request raises if CUDA is missing so misconfiguration fails fast.
     """
     s = (spec or "auto").strip().lower()
 
@@ -110,6 +108,7 @@ class NeuralNetworkEvaluator:
     """Inference-only wrapper exposing evaluate(board) -> float (centipawns)."""
 
     def __init__(self, model_path: Path, *, device: str | None = "auto"):
+        # The saved bundle carries the state dict plus the dataset/model config it was trained with.
         bundle = torch.load(model_path, map_location="cpu", weights_only=True)
         self.dataset_cfg = DatasetConfig(**bundle["dataset_config"])
         in_ch = int(bundle["model"]["in_channels"])

@@ -49,15 +49,18 @@ def output_dir() -> Path:
 
 
 def parse_elo_bucket(value: str) -> EloBucket:
+    """Normalize a CLI elo bucket string to 'low' or 'high'."""
     v = value.strip().lower()
     return cast(EloBucket, v)
 
 
 def parse_num_positions_thousands(value: str) -> int:
+    """CLI values are in thousands (e.g. '50' means 50_000 positions)."""
     return int(value) * 1000
 
 
 def safe_int(value: Any) -> int | None:
+    """Parse an int from a possibly-malformed header value; None when not parseable."""
     if value is None:
         return None
     s = str(value).strip()
@@ -67,6 +70,7 @@ def safe_int(value: Any) -> int | None:
 
 
 def game_matches_elo(headers: dict[str, Any], bucket: EloBucket) -> bool:
+    """True when a PGN game belongs to the elo bucket (low: both <= 1600, high: both >= 2000)."""
     white_elo = safe_int(headers.get("WhiteElo"))
     black_elo = safe_int(headers.get("BlackElo"))
     if white_elo is None or black_elo is None:

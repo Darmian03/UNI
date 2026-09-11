@@ -32,7 +32,7 @@ def _terminal_eval(board: chess.Board) -> Optional[float]:
 
 
 def _move_ordering_key(board: chess.Board, move: chess.Move) -> Tuple[int, str]:
-    """Higher is better."""
+    """Move-ordering key; higher values are searched first (promotion > capture > check)."""
 
     score = 0
     if move.promotion is not None:
@@ -46,6 +46,7 @@ def _move_ordering_key(board: chess.Board, move: chess.Move) -> Tuple[int, str]:
 
 
 def _ordered_moves(board: chess.Board) -> List[chess.Move]:
+    """Legal moves, shuffled then sorted by the ordering key (the shuffle breaks ties)."""
     moves = list(board.legal_moves)
     random.shuffle(moves)
     moves.sort(key=lambda m: _move_ordering_key(board, m), reverse=True)
@@ -59,6 +60,8 @@ def _alphabeta(
     beta: float,
     evaluator: Callable[[chess.Board], float],
 ) -> float:
+    """Alpha-beta search; all scores are from White's perspective."""
+    # Terminal positions (mate/draws) and depth cutoffs end the recursion early.
     term = _terminal_eval(board)
     if term is not None:
         return term
@@ -79,7 +82,7 @@ def _alphabeta(
                 value = score
             if value > alpha:
                 alpha = value
-            if alpha >= beta:
+            if alpha >= beta:  # cutoff: no remaining move can improve this node
                 break
     else:
         value = MATE_VALUE
@@ -92,14 +95,14 @@ def _alphabeta(
                 value = score
             if value < beta:
                 beta = value
-            if alpha >= beta:
+            if alpha >= beta:  # cutoff: no remaining move can improve this node
                 break
 
     return value
 
 
 def _evaluate_root_move(args: Tuple[str, str, int, Callable[[chess.Board], float]]) -> Tuple[str, float]:
-    """Evaluate a root move in a fresh board."""
+    """Evaluate one root move on a fresh board; illegal moves count as an immediate mate loss."""
 
     fen, move_uci, depth, evaluator = args
     board = chess.Board(fen)
@@ -114,16 +117,19 @@ def _evaluate_root_move(args: Tuple[str, str, int, Callable[[chess.Board], float
 
 
 def _mp_init(evaluator: Callable[[chess.Board], float]) -> None:
+    """Pool initializer: stash the evaluator in worker-global state (spawn workers can't receive it per task)."""
     _MP_STATE["evaluator"] = evaluator
 
 
 def _evaluate_root_move_mp(args: Tuple[str, str, int]) -> Tuple[str, float]:
+    """Worker-side entry point; pulls the shared evaluator from _MP_STATE."""
     fen, move_uci, depth = args
     evaluator = _MP_STATE["evaluator"]
     return _evaluate_root_move((fen, move_uci, depth, evaluator))
 
 
 def _is_spawnable_evaluator(evaluator: Callable[[chess.Board], float]) -> bool:
+    """True if the evaluator can be pickled for a spawn pool (functions defined in __main__ cannot)."""
     mod = getattr(evaluator, "__module__", None)
     if mod == "__main__":
         return False
@@ -137,13 +143,18 @@ def minimax(
     use_multiprocessing: bool = False,
     num_processes: Optional[int] = None,
 ) -> Tuple[chess.Move, float]:
-    """Алфа-бета minimax: връща най-добрия ход и оценка."""
+    """Alpha-beta minimax; returns (best_move, score from White's perspective).
+
+    The root move is picked with alpha-beta pruning over ordered moves; with
+    use_multiprocessing each root move is searched in a parallel worker instead.
+    """
 
     moves = _ordered_moves(board)
 
     maximizing = board.turn == chess.WHITE
 
     if depth == 0:
+        # No search left: score every root move directly with the evaluator.
         best_move = moves[0]
         best_eval = -MATE_VALUE if maximizing else MATE_VALUE
         for move in moves:
@@ -161,6 +172,7 @@ def minimax(
         return best_move, float(best_eval)
 
     if use_multiprocessing:
+        # Fall back to single-process when the evaluator can't be pickled for spawn.
         if not _is_spawnable_evaluator(evaluator):
             use_multiprocessing = False
         else:
@@ -192,6 +204,7 @@ def minimax(
 
             return best_move, best_eval
 
+    # Sequential root search; alpha/beta are carried across sibling moves.
     best_move = moves[0]
     best_eval = -MATE_VALUE if maximizing else MATE_VALUE
 

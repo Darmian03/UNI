@@ -105,6 +105,7 @@ def encode_board(board: chess.Board, game_phase: GamePhase | None, *, include_ga
 
 
 def clamp_cp(cp: float, clip: int) -> float:
+    """Clamp a centipawn value to [-clip, +clip] (keeps mate scores from dominating the loss)."""
     if cp > clip:
         return float(clip)
     if cp < -clip:

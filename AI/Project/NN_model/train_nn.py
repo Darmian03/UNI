@@ -28,6 +28,8 @@ from NN_model.utils import (
 
 
 class ChessEvalDataset(Dataset):
+    """Maps (fen, phase) rows to encoded board tensors and centipawn targets."""
+
     def __init__(self, fens: list[str], phases: list[str], targets: list[float], *, dataset_cfg: DatasetConfig):
         self.fens = fens
         self.phases = phases
@@ -73,6 +75,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Train NNEvalNet on a Stockfish-evaluated CSV and save the model bundle to trained_models/."""
     args = _parse_args()
 
     device = resolve_device(args.device)

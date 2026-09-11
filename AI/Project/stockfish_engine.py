@@ -9,15 +9,11 @@ import chess.engine
 
 
 def find_stockfish_exe() -> Path:
-    """Locate the Stockfish executable, cross-platform.
+    """Locate the Stockfish executable (cross-platform).
 
-    Resolution order:
-      1. ``STOCKFISH_PATH`` environment variable (explicit override).
-      2. ``stockfish`` on the system PATH (covers apt/brew installs and ~/bin).
-      3. Well-known install locations for Linux/macOS/Windows.
-
-    Raises FileNotFoundError with a hint if nothing is found, so callers fail
-    fast instead of trying to popen a bogus path.
+    Resolution order: STOCKFISH_PATH env var > PATH > well-known install
+    locations > glob scan of common dirs. Raises FileNotFoundError with an
+    install hint if nothing is found, so callers fail fast on a bogus path.
     """
     env = os.environ.get("STOCKFISH_PATH")
     if env:
@@ -82,6 +78,7 @@ def evaluate_board(
     threads: int = 1,
     stockfish_path: Path | None = None,
 ) -> tuple[chess.Move, float]:
+    """Analyse a board with Stockfish; returns (best_move, centipawn score from White's POV)."""
     exe = stockfish_path or find_stockfish_exe()
     eng = chess.engine.SimpleEngine.popen_uci(str(exe))
     eng.configure({"Threads": int(max(1, threads))})

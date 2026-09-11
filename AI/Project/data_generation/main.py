@@ -49,7 +49,12 @@ def _evaluate_one(job: tuple[int, dict, dict]) -> tuple[int, dict]:
 
 
 def main() -> None:
-    """Sample positions from the PGN and write a Stockfish-evaluated CSV dataset."""
+    """Sample positions from the PGN and write a Stockfish-evaluated CSV dataset.
+
+    Pipeline: sample N unique FENs (per elo bucket, balanced by game phase), then
+    evaluate each in parallel with one-threaded Stockfish workers; rows are kept
+    index-aligned so imap_unordered results land in the right slot of the CSV.
+    """
     args = _parse_args()
 
     num_positions = dg_utils.parse_num_positions_thousands(args.num_positions)
@@ -62,6 +67,7 @@ def main() -> None:
     sampling_cfg = dg_utils.SamplingConfig()
 
     cpu_workers = max(1, mp.cpu_count())
+    # One thread per engine: each worker runs its own Stockfish process.
     stockfish_cfg = dg_utils.StockfishConfig(threads=1)
 
     samples, _sampling_meta = sample_positions(
