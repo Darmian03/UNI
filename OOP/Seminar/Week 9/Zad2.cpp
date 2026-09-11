@@ -1,0 +1,29 @@
+#include <iostream>
+
+int* findBiggest(int* start, int* end, int* other);
+
+int main()
+{
+    int arr[] = {2, 9, 4, 6, 10, 13, 2, 3, 5, 9};
+    int size = sizeof(arr)/ sizeof(arr[0]);
+
+    int* start = arr;
+    int* end = arr + size - 1;
+
+    int* other = nullptr;
+
+    std::cout << start + 5 <<std::endl;
+    std::cout << findBiggest(start, end, other);
+}
+
+int* findBiggest(int* start, int* end, int* other){
+    other = start;
+    while(start <= end){
+        if(*start > *other){
+            other = start;
+        }
+        start++; 
+    }
+
+    return other;
+}
