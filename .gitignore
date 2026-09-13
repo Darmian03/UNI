@@ -7,3 +7,8 @@ AI/Project/data/*1000k*
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+.venv/
+
+# Others
+.gitignore
+.gitkeep
