@@ -1,0 +1,137 @@
+﻿<html>
+	<head>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="three.min.js"></script>
+		
+		<!-- Зареждането на OBJ файлове е в OBJLoader.js,
+		който е част от пълния Three.js, но не е включен в
+		самия three.min.js код. Затова ръчно го добавяме. -->
+		<script src="OBJLoader.js"></script>
+		
+		<script>
+			// Задача: Нарисувайте човек чрез използване на
+			// готов тримерен модел			
+	
+			var renderer = new THREE.WebGLRenderer( {antialias: true} );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			renderer.setAnimationLoop( drawFrame );
+			document.body.appendChild( renderer.domElement );
+
+			var scene = new THREE.Scene();
+			scene.background = new THREE.Color( 0x000040 );
+
+			var aspect = window.innerWidth/window.innerHeight;
+			var camera = new THREE.PerspectiveCamera( 30, aspect );
+			camera.position.set( 0, 0, 4 );
+			
+			
+			// звезди (не се искаха в условието, ама не мога
+			// да се сдържа да не ги сложа)
+			var stars = new THREE.TextureLoader().load( "NASA/yale8.jpg" );
+			stars.repeat = new THREE.Vector2( 3, 3 );
+			stars.offset = new THREE.Vector2( 0, 0 );
+			stars.wrapS = THREE.RepeatWrapping;
+			stars.wrapT = THREE.RepeatWrapping;
+			var cosmos = new THREE.Mesh(
+				new THREE.SphereGeometry( 30, 32, 32 ),
+				new THREE.MeshBasicMaterial( {map: stars, side: THREE.DoubleSide} )
+			);
+			scene.add( cosmos );
+			
+			
+			// текстури на астронавт (на сайта на NASA има
+			// много 3D модели, всички са Public Domain)
+			var texture = new THREE.TextureLoader().load( "NASA/z2_Color_s.jpg" );
+			var bump = new THREE.TextureLoader().load( "NASA/z2_Bump_s.jpg" );
+			
+			// самият астронавт като форма е дефиниран във
+			// файла Z2.obj, използваме OBJLoader (зареждач
+			// на *.obj файлове), за да  прочетем този файл
+			// и за да създадем автоматично съответната
+			// форма (геометрия)
+			var astronaut;
+			var loader = new THREE.OBJLoader();
+			loader.load(
+				"NASA/Z2.obj",
+				function ( object ) {
+					// тази функция се извиква при успешното
+					// прочитане и обработване на 3D модела
+					
+					// вземаме формата на астронавта
+					astronaut = object;
+
+					// създаваме и материала му като ползваме
+					// текстура за цвета и за микрорелефа
+					var material = new THREE.MeshPhongMaterial({
+						shininess: 80,
+						map: texture,
+						bumpMap: bump,
+						bumpScale: 0.02,
+					});
+					
+					// понеже прочетения с OBJLoader обект
+					// е групов обект, материалът трябва да
+					// се закачи към всички вложени обекти,
+					// а не към груповия обект, затова с
+					// traverse обхождаме всички подобекти
+					astronaut.traverse( function ( child )
+						{
+								child.material = material;
+						} );
+					
+					// астронавтът е готов, добавяме го към сцената
+					astronaut.position.y = -1;
+					scene.add( astronaut );
+				}
+			);
+
+
+			// светлини
+			var lightr = new THREE.PointLight( 'white', 1/2 );
+			lightr.position.set( 120, -20, 0 );
+			scene.add( lightr );
+			var light = new THREE.PointLight( 'white', 1/2 );
+			light.position.set( -120, -20, 0 );
+			scene.add( light );
+			var light = new THREE.PointLight( 'white', 1/2 );
+			light.position.set( 0, 120, 0 );
+			scene.add( light );
+			scene.add( new THREE.AmbientLight( 'gray' ) );
+
+		
+			var t = 0;
+			function drawFrame()
+			{
+				t++;
+				if (astronaut)
+				{
+					// въртим астронавта едва когато е създаден,
+					// понеже четенето на формата му и на
+					// текстурите е асинхронно
+					astronaut.rotation.x = 0.1*Math.sin(t/70)-0.1*Math.cos(t/80);
+					astronaut.rotation.y = t/151;
+					astronaut.rotation.z = 0.1*Math.sin(t/90)+0.1*Math.cos(t/60);
+				}
+				
+				// приближаваме и отдалечаваме гледната точка
+				var s = Math.pow( Math.sin(t/300), 2 );
+				camera.position.set( 0, 0.4-0.4*s, 2+3*s );
+
+				// въртим бавно и фона със звездите отзад
+				cosmos.rotation.y = -t/3500;
+				
+				// променяме цвета на едната светлина, така
+				// имитираме някаква сигнална лампа извън
+				// кадъра, на която виждаме само отражението
+				// в скафандъра
+				lightr.color.set( (t%30<10)?'white':'red' );
+				renderer.render( scene, camera );
+			}
+		</script>
+	</body>
+</html>

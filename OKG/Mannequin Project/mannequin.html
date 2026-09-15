@@ -1,0 +1,123 @@
+﻿<!DOCTYPE html>
+
+<html>
+	<head>
+		<script src="three.min.js"></script>
+		<script src="mannequin.js"></script>
+		<style>
+			body {color: black; text-shadow: 0 0 4px gray; font-family: Calibri;}
+			h1   {position: fixed; z-index: 10; top: 0; left: 0; text-align: center; width: 100%;}
+			div  {position: fixed; z-index: 10; bottom: 1em; left: 1em; font-size: 1.5em; font-style: italic;}
+		</style>
+	</head>
+
+	<body>
+		<h1>Поздравяване</h1>  
+		<div>
+			Тука двама колеги си казват здрасти,<br>
+			"Здравей, колега. Дай пари за пасти!".<br>
+			Те за пример дано да стават,<br>
+			пет точки за мене да останат.
+		</div>
+		
+		<script>
+			createScene();
+			
+			man = new Male(); // колегата
+			man.position.x = -17.5;
+			man.turn = 0;
+			man.l_leg.straddle = -10;
+
+			woman = new Female(); // колежката
+			woman.position.x = 17.5;
+			woman.turn = 180;
+
+			function animate(t)
+			{
+				if(t < 360){ //покланянето
+					var curtsey = -25 * cos(t) + 25;
+
+					man.torso.bend = curtsey;
+					man.l_elbow.bend = curtsey;
+					man.r_elbow.bend = curtsey;
+
+					woman.torso.bend = curtsey;
+					woman.l_elbow.bend = curtsey;
+					woman.r_elbow.bend = curtsey;
+				}
+				if(240 < t && t < 360){ //колегата беше с прибрани крака при поклона
+					man.l_leg.straddle = 5 * sin(t) - 5;
+				}
+				if(360 < t && t < 450){ // хващането за ръце
+					var turning = 15 * sin(t);
+
+					man.r_leg.raise = turning;
+					man.r_knee.bend = turning;
+					man.torso.bend = turning;
+					man.torso.turn = turning; //малко за реализъм
+
+					man.r_arm.raise = 2*turning;
+					man.r_arm.straddle = -0.04*turning;
+					man.r_elbow.bend = 4.3*turning;
+					man.r_wrist.tilt = -turning;
+
+					man.r_fingers.bend = turning; //захватката
+					man.r_finger_0.straddle = -2*turning;
+					man.r_finger_0.mid.bend = turning;
+					man.r_finger_2.mid.bend = 2*turning;
+					man.r_finger_3.mid.bend = 2*turning;
+					man.r_finger_4.mid.bend = 2*turning;
+					man.r_finger_2.tip.bend = 4*turning;
+					man.r_finger_3.tip.bend = 4*turning;
+					man.r_finger_4.tip.bend = 4*turning; //в документацията има малка грешка - написано е ...fingers_1.tip..., а не ...finger_1.tip...
+
+					woman.r_leg.raise = turning;
+					woman.r_knee.bend = turning;
+					woman.torso.bend = turning;
+					woman.torso.turn = turning;
+
+					woman.r_arm.raise = 2*turning;
+					woman.r_elbow.bend = 5*turning; //понеже колежката е по ниска въртим малко повече
+					woman.r_wrist.tilt = -turning;
+					woman.r_fingers.bend = turning;
+
+					woman.r_finger_0.straddle = -2*turning;
+					woman.r_finger_0.mid.bend = turning;
+					woman.r_finger_2.tip.bend = 2*turning;
+					woman.r_finger_3.tip.bend = 2*turning;
+					woman.r_finger_4.tip.bend = 2*turning;
+				}
+				
+				if(t > 450){
+					var turning = 5 * sin(t);
+
+					man.r_elbow.bend = 0.8*turning + 60;
+					woman.r_elbow.bend = turning + 70; //вечно здрависване
+				}
+
+				if( 450 < t && t < 540){
+					var turning = -15 * sin(t);
+					man.l_arm.raise = turning + 10;
+					man.l_elbow.bend = turning + 15;
+
+					woman.l_arm.raise = 2*turning + 25;
+					woman.l_arm.turn = 2*turning + 30;
+					woman.l_elbow.bend = 2*turning + 30;
+				}
+
+				if(t > 540){
+					var turning = 10 * sin(t);
+
+					woman.l_arm.turn = turning + 30;
+					woman.l_elbow.bend = 2*turning + 30; //колежката иска пари за пасти
+
+					man.head.turn = 3*turning;          //колегата не дава
+				}
+				
+
+				scene.rotation.y = t / 500;
+			}
+
+		</script>
+	</body>
+</html>

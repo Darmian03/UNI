@@ -1,0 +1,232 @@
+<html>
+	<head>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="three.min.js"></script>
+        <script src="CSG.js"></script>
+		<script>
+            //don't touch
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+			
+			var aspect = window.innerWidth/window.innerHeight;
+			var camera = new THREE.PerspectiveCamera( 30, aspect );
+			camera.position.set( 40, 20, 60 );
+			camera.lookAt( new THREE.Vector3() );
+
+
+            //SCENE
+            var scene = new THREE.Scene();
+            darkBrown = new THREE.MeshPhongMaterial( {color:'rgb(92, 64, 51)', side: THREE.DoubleSide} );
+            darkGreen = new THREE.MeshPhongMaterial( {color:'rgb(1, 50, 32)', side: THREE.DoubleSide} );
+            darkGray = new THREE.MeshPhongMaterial( {color:'rgb(75, 75, 75)', side: THREE.DoubleSide} );
+            yellow = new THREE.MeshPhongMaterial( {color:'rgb(255, 255, 0)', side:THREE.DoubleSide} );
+            orange = new THREE.MeshPhongMaterial( {color:'orange', side:THREE.DoubleSide} );
+
+            var light1 = new THREE.PointLight(0xffffff, 0.5);
+            light1.position.set( 0, 0, 1 );
+
+
+            //WINDOWS
+            var glass = new THREE.Group();
+
+            var geometry = new THREE.RingGeometry( 0, 0.5, 32, 32, 0, Math.PI); 
+            var upperPart = new THREE.Mesh( geometry, yellow );
+            upperPart.position.set(0, 0.5, 0);
+            glass.add( upperPart );
+
+            var geometry = new THREE.PlaneGeometry(1, 1);
+            var lowerPart = new THREE.Mesh( geometry, yellow );
+            lowerPart.add(light1);
+            glass.add( lowerPart );
+
+
+            //COFFIN
+            var coffin = new THREE.Group();
+
+            var csg = new CSG();
+
+			var body = new THREE.Mesh( new THREE.BoxGeometry(3, 1, 4) );
+            var box = new THREE.Mesh( new THREE.BoxGeometry(1.5, 1, 1.5) );
+            var box2 = new THREE.Mesh( new THREE.BoxGeometry(4, 1, 4) );
+
+            box.rotation.set(0, Math.PI/4, 0);
+            box.position.set(1.5, 0, -2);
+            box2.rotation.set(0, -Math.PI/16, 0);
+            box2.position.set(3, 0, 1);
+
+            var box1 = box.clone();
+            box1.position.set(-1.5, 0, -2);
+
+            var box3 = box2.clone();
+            box3.rotation.set(0, Math.PI/16, 0);
+            box3.position.set(-3, 0, 1);
+			csg.subtract( [body, box, box1, box2, box3] );
+
+            var ark = csg.toMesh();
+			ark.material = darkBrown;
+			coffin.add(ark);
+
+
+            //PUMPKIN
+            var pumpkin = new THREE.Group();
+
+            var csg = new CSG();
+
+            var body = new THREE.Mesh( new THREE.SphereGeometry(1, 16, 32) );
+            var box = new THREE.Mesh( new THREE.BoxGeometry(3, 1, 3) );
+
+            box.position.set(0, 1, 0);
+            csg.subtract([body, box]);
+
+            var head = csg.toMesh();
+            head.material = orange;
+            head.add(light1.clone());
+            pumpkin.add(head);
+
+
+            //TOWER
+            var tower = new THREE.Group();
+
+            var geometry = new THREE.CylinderGeometry( 2, 2, 5, 6, 16, true, Math.PI/2);
+            var body = new THREE.Mesh( geometry, darkGray );
+            tower.add(body);
+
+            var geometry = new THREE.CylinderGeometry( 0, 2, 3, 6, 16, true, Math.PI/2);
+            var roof = new THREE.Mesh( geometry, darkBrown );
+            roof.position.set(0, 4, 0);
+            tower.add(roof);
+
+            window1 = glass.clone();
+            window1.position.set(0, 0, 1.8);
+            tower.add(window1);
+
+
+            //HOUSE
+            var house = new THREE.Group();
+
+            var csg = new CSG();
+
+            var box = new THREE.Mesh( new THREE.BoxGeometry(20, 8, 20) );
+            var box1 = new THREE.Mesh( new THREE.BoxGeometry(2, 8, 2) );
+            box1.rotation.set(0, Math.PI/4, 0);
+            box1.position.set(10, 0, 10);
+            var box2 = new THREE.Mesh( new THREE.BoxGeometry(2, 8, 2) );
+            box2.rotation.set(0, Math.PI/4, 0);
+            box2.position.set(-10, 0, 10);
+            var box3 = new THREE.Mesh( new THREE.BoxGeometry(2, 8, 2) );
+            box3.rotation.set(0, Math.PI/4, 0);
+            box3.position.set(10, 0, -10);
+            var box4 = new THREE.Mesh( new THREE.BoxGeometry(2, 8, 2) );
+            box4.rotation.set(0, Math.PI/4, 0);
+            box4.position.set(-10, 0, -10);
+
+            csg.subtract([box, box1, box2, box3, box4]);
+            var body = csg.toMesh();
+            body.material = new THREE.MeshPhongMaterial( {color:'rgb(65, 65, 65)', side: THREE.DoubleSide} );
+            house.add(body);
+
+            var tower1 = tower.clone();
+            tower1.position.set(8, 6.5, 8);
+            house.add(tower1);
+
+            var tower2 = tower.clone();
+            tower2.position.set(8, 6.5, -8);
+            tower2.rotation.set(0, Math.PI, 0);
+            house.add(tower2);
+
+            var tower3 = tower.clone();
+            tower3.position.set(-8, 6.5, 8);
+            house.add(tower3);
+
+            var tower4 = tower.clone();
+            tower4.position.set(-8, 6.5, -8);
+            tower4.rotation.set(0, Math.PI, 0);
+            house.add(tower4);
+
+            var geometry = new THREE.CylinderGeometry( 0, 13, 6, 4, 32, true, Math.PI/4);
+			var roof = new THREE.Mesh( geometry, darkGray );
+            roof.position.set(0, 7, 0);
+            house.add(roof);
+
+            var geometry = new THREE.PlaneGeometry(4, 4);
+            var door = new THREE.Mesh( geometry, darkBrown );
+            door.position.set(0, -2, 10.1);
+            house.add(door);
+
+            var window1 = glass.clone();
+            window1.position.set(5, 0, 10.1);
+            house.add(window1);
+
+            var window2 = glass.clone();
+            window2.position.set(-5, 0, 10.1);
+            house.add(window2);
+
+            var window3 = glass.clone();
+            window3.position.set(10.1, 0, 5);
+            window3.rotation.set(0, Math.PI/2, 0);
+            house.add(window3);
+
+            var window4 = glass.clone();
+            window4.position.set(10.1, 0, -5);
+            window4.rotation.set(0, Math.PI/2, 0);
+            house.add(window4);
+
+            var window5 = glass.clone();
+            window5.position.set(5, 0, -10.1);
+            window5.rotation.set(0, Math.PI, 0);
+            house.add(window5);
+
+            var window6 = glass.clone();
+            window6.position.set(-5, 0, -10.1);
+            window6.rotation.set(0, Math.PI, 0);
+            house.add(window6);
+
+            var window7 = glass.clone();
+            window7.position.set(-10.1, 0, 5);
+            window7.rotation.set(0, Math.PI/2*3, 0);
+            house.add(window7);
+
+            var window8 = glass.clone();
+            window8.position.set(-10.1, 0, -5);
+            window8.rotation.set(0, Math.PI/2*3, 0);
+            house.add(window8);
+
+
+            //GROUND
+            var ground = new THREE.Group();
+
+            var geometry = new THREE.BoxGeometry( 24, 2, 32);
+            var soil = new THREE.Mesh( geometry, darkGreen );
+            ground.add(soil);
+
+            for(var x = -11; x < 20; x+=22)
+            for(var z = -15; z < 20; z+=15)
+            {
+                var pumpkin1 = pumpkin.clone();
+                pumpkin1.position.set(x, 1.75, z);
+                ground.add(pumpkin1);
+            }
+
+            var coffin1 = coffin.clone();
+            coffin1.position.set(-5, 2, 11);
+            ground.add(coffin1);
+
+            var coffin2 = coffin.clone();
+            coffin2.position.set(5, 2, 11);
+            ground.add(coffin2);
+
+
+            scene.add( house );
+            ground.position.set(0, -5, 4);
+            scene.add( ground );
+
+			renderer.render(scene, camera);
+		</script>
+	</body>
+</html>

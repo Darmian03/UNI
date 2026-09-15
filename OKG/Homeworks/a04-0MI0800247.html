@@ -1,0 +1,159 @@
+<html>
+	<head>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="three.min.js"></script>
+        <script src="CSG.js"></script>
+		<script>
+            //don't touch
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+			
+			var aspect = window.innerWidth/window.innerHeight;
+			var camera = new THREE.PerspectiveCamera( 30, aspect );
+			camera.position.set( 0, 10, 40 );
+			camera.lookAt( new THREE.Vector3() );
+
+            //SCENE
+            var scene = new THREE.Scene();
+            scene.background = new THREE.Color( 'rgb(222,222,222)' );
+            var gray = new THREE.MeshPhongMaterial( {color:'rgb(175, 175, 175)', side: THREE.DoubleSide} );
+            var brown = new THREE.MeshPhongMaterial( {color:'rgb(100, 66, 52)', side: THREE.DoubleSide} );
+
+
+            //BEARING
+            var bearing = new THREE.Group();
+            var csgBearing = new CSG();
+
+            //outer
+            var cyl1 = new THREE.Mesh( new THREE.CylinderGeometry( 1.5, 1.5, 0.8, 32) );
+            var cyl2 = new THREE.Mesh( new THREE.CylinderGeometry( 1.25, 1.25, 0.8, 32) );
+            var cyl3 = new THREE.Mesh( new THREE.CylinderGeometry( 1.4, 1.4, 0.7, 32) );
+            csgBearing.subtract( [cyl1,cyl2, cyl3] );
+
+            //inner
+            var cyl4 = new THREE.Mesh( new THREE.CylinderGeometry( 0.8, 0.8, 0.1, 32) );
+            var cyl5 = cyl4.clone();
+            var cyl6 = new THREE.Mesh( new THREE.CylinderGeometry( 0.7, 0.7, 0.8, 32) );
+            var cyl7 = new THREE.Mesh( new THREE.CylinderGeometry( 0.5, 0.5, 0.8, 32) );
+            cyl4.position.set(0, 0.35, 0);
+            cyl5.position.set(0, -0.35, 0);
+            csgBearing.union( [cyl4, cyl6, cyl5] );
+            csgBearing.subtract( [cyl7] );
+            
+            var bearingfinal = csgBearing.toMesh();
+			bearingfinal.material = gray;
+			bearing.add( bearingfinal );
+
+            //balls
+            var geometry = new THREE.SphereGeometry( 0.35, 32, 16 );
+            var ball = new THREE.Mesh( geometry, gray );
+
+            var ball1 = ball.clone();
+            ball1.position.set( -1.05, 0, 0 );
+            bearing.add( ball1 );
+
+            var ball2 = ball.clone();
+            ball2.position.set( 1.05, 0, 0 );
+            bearing.add( ball2 );
+
+            var ball3 = ball.clone();
+            ball3.position.set( 0, 0, 1.05 );
+            bearing.add( ball3 );
+
+            var ball4 = ball.clone();
+            ball4.position.set( 0, 0, -1.05 );
+            bearing.add( ball4 );
+
+            for(var x = -0.74; x < 1; x+=1.48)
+            for(var z = -0.74; z < 1; z+=1.48)
+            {
+                var ball5 = ball.clone();
+                ball5.position.set( x, 0, z );
+                bearing.add( ball5 );
+            }
+
+
+            //SHOE
+            //Тая обувка малко на ботуш прилича
+            var shoe = new THREE.Group();
+
+            //sole
+            var csgSole = new CSG();
+
+            var cyl1 = new THREE.Mesh( new THREE.CylinderGeometry( 3, 3, 1, 32) );
+            cyl1.position.set(-9, 0, 0 );
+            var box1 = new THREE.Mesh( new THREE.BoxGeometry( 9, 1, 6) );
+            box1.position.set(-4.5, 0, 0);
+            var cyl2 = new THREE.Mesh( new THREE.CylinderGeometry( 3.5, 3.5, 1, 32) );
+            csgSole.union( [cyl1, box1, cyl2] );
+
+            var multicyl = new THREE.Mesh( new THREE.CylinderGeometry( 0.1, 0.1, 8, 32) );
+            multicyl.rotation.set(Math.PI/2, 0, 0);
+
+            for(var x = -13.5; x < 4; x+=2)
+            {
+                var cyl = multicyl.clone();
+                cyl.position.set( x, -0.5, 0 );
+                csgSole.subtract( [cyl] );
+            }
+
+            var sole = csgSole.toMesh();
+            sole.material = gray;
+            sole.position.set(0, -0.5, 0);
+            shoe.add( sole );
+
+            //upperpart
+            var csgUp = new CSG();
+
+            var sph1 = new THREE.Mesh( new THREE.SphereGeometry( 3, 32, 16, 0, Math.PI) );
+            sph1.rotation.set(-Math.PI/2, 0, 0);
+            sph1.position.set(-9, 0, 0 );
+            var cyl2 = new THREE.Mesh( new THREE.CylinderGeometry( 3, 3, 9, 32, 1, false, 0, Math.PI) );
+            cyl2.rotation.set(0, 0, Math.PI/2);
+            cyl2.position.set(-4.5, 0, 0);
+            var cyl3 = new THREE.Mesh( new THREE.CylinderGeometry( 3.5, 3.5, 5, 32) );
+            cyl3.position.set(0, 2.5, 0);
+            var tor = new THREE.Mesh( new THREE.TorusGeometry( 3.5, 0.25, 16, 32) );
+            tor.position.set(0, 5, 0);
+            tor.rotation.set(Math.PI/2, 0, 0);
+            csgUp.union( [sph1, cyl2, cyl3, tor] );
+
+            var sph2 = new THREE.Mesh( new THREE.SphereGeometry( 2.9, 32, 16, 0, Math.PI) );
+            sph2.rotation.set(-Math.PI/2, 0, 0);
+            sph2.position.set(-9, 0, 0 );
+            var cyl4 = new THREE.Mesh( new THREE.CylinderGeometry( 2.9, 2.9, 9, 32, 1, false, 0, Math.PI) );
+            cyl4.rotation.set(0, 0, Math.PI/2);
+            cyl4.position.set(-4.5, 0, 0);
+            var cyl5 = new THREE.Mesh( new THREE.CylinderGeometry( 3.4, 3.4, 5, 32) );
+            cyl5.position.set(0, 2.5, 0);
+            csgUp.subtract( [sph2, cyl4, cyl5] );
+
+            var upperPart = csgUp.toMesh();
+            upperPart.material = brown;
+            shoe.add( upperPart );
+
+
+
+            bearing.rotation.set(Math.PI/2, 0, 0);
+            bearing.position.set(5, 0, 0);
+            bearing.scale.set(2, 2, 2);
+            scene.add( bearing );
+            shoe.rotation.set(0, Math.PI/4, 0);
+            shoe.position.set(-4, 0, 0);
+            scene.add( shoe );
+
+            //LIGHT
+            var light = new THREE.PointLight( );
+			light.position.set( -20, 20, 10 );
+			scene.add( light );
+
+			renderer.render(scene, camera);
+		</script>
+	</body>
+</html>
